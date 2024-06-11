@@ -14,7 +14,7 @@ type Service struct {
     repo *Repository
 }
 
-var jwtKey = []byte(os.Getenv("jwtKey"))
+
 
 func NewService(repo *Repository) *Service {
     return &Service{
@@ -23,6 +23,8 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) Authenticate(ctx context.Context, username, password string) (string, error) {
+    var jwtKey = []byte(os.Getenv("jwtKey"))
+
     user, err := s.repo.FindByUsername(ctx, username)
     if err != nil {
         return "", err
@@ -33,10 +35,10 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
         return "", fmt.Errorf("invalid credentials")
     }
 
-    expirationTime := time.Now().Add(2 * time.Minute)
+    expirationTime := time.Now().Add(24 * time.Hour)
     claims := &jwt.StandardClaims{
 		ExpiresAt: expirationTime.Unix(),
-		Subject:   user.Username,
+		Subject:   user.ID.Hex(),
 	}
 	
 
@@ -50,8 +52,6 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 }
 
 func (s *Service) Register(ctx context.Context, username, password string) error {
-
-	fmt.Println("\n\n\n\njwtKey :",jwtKey)
 
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
     if err != nil {
