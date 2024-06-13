@@ -18,15 +18,16 @@ func NewRepository(db *mongo.Database, collectionName string) *Repository {
         collection: db.Collection(collectionName),
     }
 }
-
+// Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
 func (r *Repository) FindDoc(ctx context.Context, rule *Rule) (*Rule, error) {
+    // Check if this is appropriate
     filter := bson.M{
         "name": rule.Name,
-        "word": rule.Word,
-        "char": rule.Char,
+        "matcher": rule.Matcher,
         "limit": rule.Limit,
-        "is_their": rule.IsTheir,
         "ineq": rule.Ineq,
+        "notify": rule.Notify,
+        "when" : rule.When,
     }
 
     var temp Rule

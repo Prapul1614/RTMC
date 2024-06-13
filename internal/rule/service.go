@@ -2,14 +2,17 @@ package rule
 
 import (
 	"context"
-	//"fmt"
+	//"strings"
+	"unicode/utf8"
+    //"regexp"
+    //"fmt"
 	//"log"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-    "github.com/Prapul1614/RTMC/internal/user"
+	"github.com/Prapul1614/RTMC/internal/user"
 )
 
 type Service struct {
@@ -73,7 +76,7 @@ func (s *Service) GetRule(ctx context.Context, id primitive.ObjectID) ([]Rule, e
     if err = cursor.All(ctx, &rules); err != nil {
         return nil, err
     }
-    
+
     return rules,nil
 }
 
@@ -84,3 +87,183 @@ func (s *Service) UpdateRule(ctx context.Context, id primitive.ObjectID, rule *R
 func (s *Service) DeleteRule(ctx context.Context, id primitive.ObjectID) error {
     return s.repo.Delete(ctx, id)
 }
+
+func GetLength(text string) int {
+    return utf8.RuneCountInString(text)
+}
+
+const CharSetSize = 256
+func max(a, b int) int {
+    if a > b {
+        return a
+    }
+    return b
+}
+func preprocess(pattern string, size int) [CharSetSize]int {
+    var badChar [CharSetSize]int
+    for i := 0; i < CharSetSize; i++ {
+        badChar[i] = -1
+    }
+    for i := 0; i < size; i++ {
+        badChar[int(pattern[i])] = i
+    }
+
+    return badChar
+}
+func GetCount(txt string, pat string, contains bool) int {
+    // Boyer-Moore Algorithm
+    m := len(pat)
+    n := len(txt)
+    count := 0
+    badChar := preprocess(pat, m)
+
+    s := 0 
+    for s <= (n - m) {
+        j := m - 1
+        for j >= 0 && pat[j] == txt[s+j] {
+            j--
+        }
+        if j < 0 {
+            // fmt.Println("pattern occurs at shift", s)
+            if contains {return 1}
+            count++
+            if s+m < n {
+                s += max(1, m-badChar[txt[s+m]])
+            } else { break }
+
+        } else {
+            s += max(1, j-badChar[txt[s+j]])
+        }
+    }
+    return count
+}
+
+/*func GetRuneCount(text string, charr string) int {
+    char := rune(charr[0])
+    count := 0
+    for _,r := range text {
+        if r == char {
+            count++
+        }
+    }
+    return count
+}
+
+func GetWordCount(text string, word string) int {
+    count := 0
+    words := strings.Fields(text)
+    for _,w := range(words) {
+        if w == word {
+            count++
+        }
+    }
+    return count
+}*/
+
+func GetContains(text string, word string) bool {
+    /*words := strings.Fields(text)
+    for _,w := range(words) {
+        if w == word {
+            return true
+        }
+    }*/
+    count := GetCount(text, word, true)
+    return count == 1
+}
+func ImplementOp(op string, ans, limit int) bool {
+    if ans == -1 { return false}
+    if(op == "<=") { return ans <= limit
+    } else if op == "<" { return ans < limit
+    } else if op == "=" { return ans == limit
+    } else if op == "!=" { return ans != limit
+    } else if op == ">" { return ans > limit
+    } else if op == ">=" { return ans >= limit }
+    return false
+}
+
+func (s *Service) ImplementMinMax(ctx context.Context,text string, rule *Rule) int {
+    switch rule.Name {
+    case "Length":
+        return GetLength(text)
+    case "Count":
+        return GetCount(text, rule.Matcher, false)
+    case "MIN", "MAX":
+        ans := -1 
+        if rule.Name == "MIN" {ans = 2147483647}
+        for _,v := range rule.Obj {
+            Nrule, err := s.repo.Get(ctx, v)
+            if err != nil{
+                println("Can't get rule doc with rule.MinMax.Obj", rule.ID.Hex(), v.Hex())
+                return -1
+            }
+            if rule.Name == "MIN" { 
+                ans = min(ans, s.ImplementMinMax(ctx, text, Nrule))
+            } else {
+                ans = max(ans, s.ImplementMinMax(ctx, text, Nrule))
+            }
+        }
+        return ans
+    default:
+        println("UNKNOWN RULE IN MINMAX")
+    }
+    return -1
+}
+func (s *Service) ImplementAndOr(ctx context.Context, text string, rule *Rule) bool {
+    var ans = true
+    if rule.Name == "OR" {ans = false}
+    for _,v := range rule.Obj {
+        Nrule, err := s.repo.Get(ctx, v)
+        if err != nil{
+            println("Can't get rule doc with ruleId",v.Hex(),"in", rule.ID.Hex() )
+            return false
+        }
+        if rule.Name == "AND" { 
+            ans = ans && s.ImplementRule(ctx, text, Nrule)
+        } else {
+            ans = ans || s.ImplementRule(ctx, text, Nrule)
+        }
+    }
+    return ans
+}
+func (s *Service) ImplementNot(ctx context.Context, text string, rule *Rule) bool {
+    Nrule, err := s.repo.Get(ctx, rule.Obj[0])
+    if err != nil{
+        println("Can't get rule doc with ruleId",rule.Obj[0].Hex(),"in", rule.ID.Hex() )
+        return false
+    }
+    return !s.ImplementRule(ctx, text, Nrule)
+}
+
+func (s *Service) ImplementRule(ctx context.Context, text string, rule *Rule) bool {
+    switch rule.Name {
+    case "Length":
+        ans := GetLength(text)
+        return ImplementOp(rule.Ineq, ans, rule.Limit)
+    case "Count":
+        ans := GetCount(text, rule.Matcher, false)
+        return ImplementOp(rule.Ineq, ans, rule.Limit)
+    case "Contains":
+        return GetContains(text, rule.Matcher)
+    case "MIN", "MAX":
+        ans := s.ImplementMinMax(ctx, text, rule)
+        return ImplementOp(rule.Ineq, ans, rule.Limit)
+    case "AND", "OR":
+        return s.ImplementAndOr(ctx, text, rule)
+    case "NOT":
+        return s.ImplementNot(ctx, text, rule)
+    default:
+        println("UNKNOWN RULE")
+    }
+    return true
+}
+
+/*func (s *Service) ParseRule(ctx context.Context, text string) Rule {
+    var rule Rule
+    var Name,Matcher,Ineq,Notify,When string
+    var IsTheir bool
+    var Limit int
+    var Obj = []primitive.ObjectID{}
+    var ID = primitive.NewObjectID()
+    notifyPattern = regexp.MustCompile(`NOTIFY\s+(.*?)\s+WHEN\s+(.*)`)
+    return rule
+}*/

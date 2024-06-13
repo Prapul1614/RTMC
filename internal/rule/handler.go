@@ -33,6 +33,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    println(rule.Name)
+
     owner,_ := primitive.ObjectIDFromHex(claims.Subject)
 
     if _, err := h.service.FindDoc(context.Background(), &rule, owner); err == nil {
@@ -45,6 +47,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 
     if err := h.service.CreateRule(context.Background(), &rule, owner); err != nil {
+        println(err.Error())
         http.Error(w, "Error creating rule", http.StatusInternalServerError)
         return
     }
