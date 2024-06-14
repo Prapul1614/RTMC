@@ -2,10 +2,11 @@ package rule
 
 import (
 	"context"
+	//"fmt"
 	//"strings"
 	"unicode/utf8"
-    //"regexp"
-    //"fmt"
+	//"regexp"
+	//"fmt"
 	//"log"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -25,26 +26,31 @@ func NewService(repo *Repository, userRepo user.Repository) *Service {
     return &Service{repo: repo, userRepo : userRepo}
 }
 
-func (s* Service) FindDoc(ctx context.Context, rule *Rule, id primitive.ObjectID) (*Rule, error) {
-    temp, err := s.repo.FindDoc(ctx, rule) 
-    for _,v := range temp.Owners {
-        if v == id {
-            println("Rule Already Submitted")
-            return temp, err
-        }
-    } 
+func (s* Service) FindDoc(ctx context.Context, rule *Rule, id primitive.ObjectID) (primitive.ObjectID, error) {
+    println("Entering FindDoc")
+    println(rule.Notify, rule.When)
+    temp, err := s.repo.FindDocWithWhenNotify(ctx, rule) 
+    println(temp.ID.Hex(), temp.When)
     
-    if err == nil{
+    if err == nil && id != primitive.NilObjectID{
+        println("Found Doc in FindDoc")
+        for _,v := range temp.Owners {
+            if v == id {
+                println("Rule Already Submitted")
+                return temp.ID, err
+            }
+        } 
+
         s.repo.PushUserID(ctx, temp.ID, id)
         s.userRepo.UpdateUser(ctx, id, temp.ID)
     } 
-    return temp, err
+    return temp.ID, err
 }
 
-func (s *Service) CreateRule(ctx context.Context, rule *Rule, id primitive.ObjectID) error {
+func (s *Service) CreateRule(ctx context.Context, rule *Rule, id primitive.ObjectID) (primitive.ObjectID,error) {
     rule.ID = primitive.NewObjectID()
     s.userRepo.UpdateUser(ctx, id, rule.ID)
-    return s.repo.Create(ctx, rule)
+    return rule.ID, s.repo.Create(ctx, rule)
 }
 
 func (s *Service) GetRule(ctx context.Context, id primitive.ObjectID) ([]Rule, error) {

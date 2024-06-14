@@ -1,11 +1,12 @@
 package rule
 
 import (
-    "context"
+	"context"
+	//"fmt"
 
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/bson/primitive"
-    "go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Repository struct {
@@ -19,19 +20,20 @@ func NewRepository(db *mongo.Database, collectionName string) *Repository {
     }
 }
 // Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
-func (r *Repository) FindDoc(ctx context.Context, rule *Rule) (*Rule, error) {
+func (r *Repository) FindDocWithWhenNotify(ctx context.Context, rule *Rule) (*Rule, error) {
     // Check if this is appropriate
     filter := bson.M{
-        "name": rule.Name,
-        "matcher": rule.Matcher,
-        "limit": rule.Limit,
-        "ineq": rule.Ineq,
+        //"name": rule.Name,
+        //"matcher": rule.Matcher,
+        //"limit": rule.Limit,
+        //"ineq": rule.Ineq,
         "notify": rule.Notify,
         "when" : rule.When,
     }
-
+    
     var temp Rule
     err := r.collection.FindOne(context.TODO(),filter).Decode(&temp)
+    
     return &temp, err
 }
 

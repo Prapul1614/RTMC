@@ -1,14 +1,25 @@
 package rule
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+type Parser struct {
+	service *Service
+}
+
+func NewParser(service *Service) *Parser {
+	return &Parser{service: service}
+}
 
 // dummy -> 0
 // dummy -> 1 dummy of MIN,MAX
@@ -35,7 +46,7 @@ func ValidNum(num string) int {
 	fmt.Println("INVALID NUMBER: ", num)
 	return -1
 }
-func ParseCount(cond string, dummy int) (string, string, int) {
+func (p *Parser) ParseCount(cond string, dummy int) (string, string, int) {
 	// considerinf format Count "----"
 	// return Matcher, Ineq, Limit
 	l := utf8.RuneCountInString(cond)
@@ -66,7 +77,7 @@ func ParseCount(cond string, dummy int) (string, string, int) {
 
 	return cond[7 : l-len(words[len1-1])-len(words[len1-2])-3], words[len1-2], Limit
 }
-func ParseLength(cond string, dummy int) (string, int) {
+func (p *Parser) ParseLength(cond string, dummy int) (string, int) {
 	words := strings.Fields(cond)
 	len1 := len(words)
 	Limit := -1
@@ -91,7 +102,7 @@ func ParseLength(cond string, dummy int) (string, int) {
 	}
 	return words[1], Limit
 }
-func ParseContains(cond string) (string, int) {
+func (p *Parser) ParseContains(cond string) (string, int) {
 	l := len(cond)
 	if cond[9] != '"' || cond[l-1] != '"' {
 		println("InValid representation for Contains Instruction.")
@@ -100,7 +111,7 @@ func ParseContains(cond string) (string, int) {
 	}
 	return cond[10 : l-1], 0
 }
-func ParseMinMax(cond string, dummy int) ([]primitive.ObjectID, string, int) {
+func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]primitive.ObjectID, string, int) {
 	words := strings.Fields(cond)
 	len1 := len(words)
 	obj := []primitive.ObjectID{}
@@ -140,6 +151,10 @@ func ParseMinMax(cond string, dummy int) ([]primitive.ObjectID, string, int) {
 				fmt.Println("Please use spaces and commas',' between Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
 				return []primitive.ObjectID{}, "", -1
 			}
+			if cond[i-2] == ' ' || cond[i+2] == ' ' {
+				fmt.Println("Please use only one single spaces between commas',' and Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
+				return []primitive.ObjectID{}, "", -1
+			}
 		}
 		if (v == ',' && ip == 1 && ib == 0) || (v == ')' && ip == 0) {
 			// this code checks if v == ')' this is last parenthesis after this only op number are their
@@ -150,10 +165,10 @@ func ParseMinMax(cond string, dummy int) ([]primitive.ObjectID, string, int) {
 				return obj, "", -1
 			}
 			if v == ',' {
-				Nobj = ParseCondition(cond[cond_start:i-1], 1, "")
+				Nobj = p.ParseCondition(ctx, cond[cond_start:i-1], 1, "")
 				cond_start = i + 2
 			} else {
-				Nobj = ParseCondition(cond[cond_start:i], 1, "")
+				Nobj = p.ParseCondition(ctx, cond[cond_start:i], 1, "")
 			}
 			if Nobj == primitive.NilObjectID {
 				return []primitive.ObjectID{}, "", -1
@@ -166,7 +181,7 @@ func ParseMinMax(cond string, dummy int) ([]primitive.ObjectID, string, int) {
 	}
 	return obj, words[len1-2], Limit
 }
-func ParseAndOr(cond string) ([]primitive.ObjectID, int) {
+func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.ObjectID, int) {
 	// PLEASE ONCE GO THRU THIS CODE
 
 	var obj = []primitive.ObjectID{}
@@ -198,7 +213,11 @@ func ParseAndOr(cond string) ([]primitive.ObjectID, int) {
 		}
 		if v == ',' && ip == 1 && ib == 0 {
 			if cond[i-1] != ' ' || cond[i+1] != ' ' {
-				fmt.Println("Please use spaces and commas',' between Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
+				fmt.Println("Please use spaces and commas',' between Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)")
+				return []primitive.ObjectID{}, -1
+			}
+			if cond[i-2] == ' ' || cond[i+2] == ' ' {
+				fmt.Println("Please use only one single spaces between commas',' and Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)")
 				return []primitive.ObjectID{}, -1
 			}
 		}
@@ -211,10 +230,10 @@ func ParseAndOr(cond string) ([]primitive.ObjectID, int) {
 				return obj, -1
 			}
 			if v == ',' {
-				Nobj = ParseCondition(cond[cond_start:i-1], 2, "")
+				Nobj = p.ParseCondition(ctx, cond[cond_start:i-1], 2, "")
 				cond_start = i + 2
 			} else {
-				Nobj = ParseCondition(cond[cond_start:i], 2, "")
+				Nobj = p.ParseCondition(ctx, cond[cond_start:i], 2, "")
 			}
 			if Nobj == primitive.NilObjectID {
 				return []primitive.ObjectID{}, -1
@@ -224,21 +243,24 @@ func ParseAndOr(cond string) ([]primitive.ObjectID, int) {
 	}
 	return obj, 0
 }
-func ParseNot(cond string) ([]primitive.ObjectID, int) {
+func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectID, int) {
 	l := len(cond)
 	var obj = []primitive.ObjectID{}
 	if cond[4] != '(' || cond[l-1] != ')' {
 		println("InValid representation for NOT Instruction.")
 		println("Please follow: NOT (Instruction")
 	}
-	Nobj := ParseCondition(cond[5:l-1], 2, "")
+	Nobj := p.ParseCondition(ctx, cond[5:l-1], 2, "")
 	if Nobj == primitive.NilObjectID {
 		return obj, -1
 	}
 	obj = append(obj, Nobj)
 	return obj, 0
 }
-func ParseCondition(cond string, dummy int, temp string) primitive.ObjectID {
+
+var owner primitive.ObjectID
+
+func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, temp string) primitive.ObjectID {
 	//fmt.Println("\n\n\n",cond,"\n")
 	var ip, ib int
 	for _, v := range cond {
@@ -255,25 +277,26 @@ func ParseCondition(cond string, dummy int, temp string) primitive.ObjectID {
 			return primitive.NilObjectID
 		}
 	}
-	ID := primitive.NewObjectID()
 	Names := []string{"Count", "Length", "Contains", "MAX", "MIN", "OR", "AND", "NOT"}
 	//var ii int
 	var tag int
 	var Name, Matcher, Ineq, Notify, When string
 	//var IsTheir bool
 	var Limit int
-	Created := dummy
 	var Obj = []primitive.ObjectID{}
-	if dummy == 0 {
-		Notify = temp
-		When = cond
-	}
+	//if dummy == 0 {
+	Notify = temp
+	When = cond
+	//}
 	for i, v := range cond {
 		//println(i,v,' ','(')
-		if v == '(' || v == '"'{
-			fmt.Println("Please provide space between Instruction name and ",string(v),".")
-			if v == '(' { fmt.Println(" Example: MIN (condition1 , condition2) ") 
-			} else { fmt.Println(" Example: Count \"abc\" operater number" )}
+		if v == '(' || v == '"' {
+			fmt.Println("Please provide space between Instruction name and ", string(v), ".")
+			if v == '(' {
+				fmt.Println(" Example: MIN (condition1 , condition2) ")
+			} else {
+				fmt.Println(" Example: Count \"abc\" operater number")
+			}
 			return primitive.NilObjectID
 		}
 		if v == ' ' || i == len(cond)-1 {
@@ -310,45 +333,45 @@ func ParseCondition(cond string, dummy int, temp string) primitive.ObjectID {
 	}
 	if Name == "Count" {
 		fmt.Println("Gointing into ParseCount")
-		Matcher, Ineq, Limit = ParseCount(cond, dummy)
+		Matcher, Ineq, Limit = p.ParseCount(cond, dummy)
 		fmt.Println("Count: ", Matcher, ',', Ineq, ',', Limit)
 		if Limit == -1 {
 			return primitive.NilObjectID
 		}
 	} else if Name == "Length" {
 		fmt.Println("Going into ParseLength")
-		Ineq, Limit = ParseLength(cond, dummy)
+		Ineq, Limit = p.ParseLength(cond, dummy)
 		fmt.Println("Length: ", Ineq, ',', Limit)
 		if Limit == -1 {
 			return primitive.NilObjectID
 		}
 	} else if Name == "Contains" {
 		fmt.Println("Going into ParseContains")
-		Matcher, tag = ParseContains(cond)
+		Matcher, tag = p.ParseContains(cond)
 		fmt.Println("Contains: ", Matcher)
 		if tag == -1 {
 			return primitive.NilObjectID
 		}
 	} else if Name == "MAX" || Name == "MIN" {
 		fmt.Println("Going into ParseMinMax")
-		Obj, Ineq, Limit = ParseMinMax(cond, dummy)
-		fmt.Println(Name, ": ")
+		Obj, Ineq, Limit = p.ParseMinMax(ctx, cond, dummy)
+		/*fmt.Println(Name, ": ")
 		for i, v := range Obj {
 			fmt.Println(i, v)
-		}
-		fmt.Println(Ineq, ',', Limit)
+		}*/
+		fmt.Println(Name, Ineq, ',', Limit)
 		if Limit == -1 {
 			return primitive.NilObjectID
 		}
 	} else if Name == "AND" || Name == "OR" {
 		fmt.Println("Going into ParseAndOr")
-		Obj, tag = ParseAndOr(cond)
+		Obj, tag = p.ParseAndOr(ctx, cond)
 		if tag == -1 {
 			return primitive.NilObjectID
 		}
 	} else if Name == "NOT" {
 		fmt.Println("Going into ParseNot")
-		Obj, tag = ParseNot(cond)
+		Obj, tag = p.ParseNot(ctx, cond)
 		if tag == -1 {
 			return primitive.NilObjectID
 		}
@@ -356,17 +379,53 @@ func ParseCondition(cond string, dummy int, temp string) primitive.ObjectID {
 		fmt.Println("InValid Instruction: ", Name)
 		return primitive.NilObjectID
 	}
+	var Nrule Rule
+	Nrule.Name = Name
+	Nrule.Matcher = Matcher
+	Nrule.Ineq = Ineq
+	Nrule.Limit = Limit
+	Nrule.Obj = Obj
+	Nrule.Notify = Notify
+	Nrule.When = When
+	Nrule.Owners = []primitive.ObjectID{}
 
-	fmt.Println("printing after ParseCondition:\n", Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
-	
+	var ID primitive.ObjectID
+	var err error
+	if dummy == 0 {
+		ID, err = p.service.FindDoc(ctx, &Nrule, owner)
+	} else {
+		ID, err = p.service.FindDoc(ctx, &Nrule, primitive.NilObjectID)
+	}
+
+	if err != nil {
+		if dummy == 0 {
+			Nrule.Owners = append(Nrule.Owners, owner)
+			ID, err = p.service.CreateRule(ctx, &Nrule, owner)
+		} else {
+			ID, err = p.service.CreateRule(ctx, &Nrule, primitive.NilObjectID)
+		}
+		if err != nil {
+			println(err.Error())
+			return primitive.NilObjectID
+		}
+	}
+	// fmt.Println("printing after ParseCondition:\n", Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
 	return ID
 }
 
-func ParseRule(text string) {
-	//var ID = primitive.NewObjectID()
+func (p *Parser) ParseRule(ctx context.Context, text string, rule_owner primitive.ObjectID) (Rule, error) {
+	var rule Rule
 	notifyPattern := regexp.MustCompile(`NOTIFY\s+(.*?)\s+WHEN\s+(.*)`)
 	matches := notifyPattern.FindStringSubmatch(text)
-	//fmt.Println(matches[0], ',', matches[1], ',', matches[2])
-	ID := ParseCondition(matches[2], 0, matches[1])
-	println(ID.Hex())
+	if len(matches) != 3 {
+		return rule, errors.New("not of form: NOTIFY \"your_classification\" WHEN \"your_condition\"")
+	}
+
+	owner = rule_owner
+	ID := p.ParseCondition(ctx, matches[2], 0, matches[1])
+
+	// What happens when ID is nilObjectID
+	err := p.service.repo.collection.FindOne(ctx, bson.D{{Key: "_id", Value: ID}}).Decode(&rule)
+
+	return rule, err
 }

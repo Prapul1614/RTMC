@@ -17,7 +17,7 @@ type Rule struct {
 	Ineq	 string				`bson:"ineq"`
 	Limit    int				`bson:"limit"`
 	Obj  	 []primitive.ObjectID `bson:"obj"`
-	Created  int				`bson:"created"`
+	//Created  int				`bson:"created"`
 	Notify   string				`bson:"notify"`
 	When 	 string				`bson:"when"`
     Owners   []primitive.ObjectID `bson:"owners"`

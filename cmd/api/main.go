@@ -49,7 +49,8 @@ func main(){
 
 	rulesRepo := rule.NewRepository(db, "rules")
     rulesService := rule.NewService(rulesRepo, *userRepo)
-    rulesHandler := rule.NewHandler(rulesService)
+    rulesParser := rule.NewParser(rulesService)
+    rulesHandler := rule.NewHandler(rulesService, rulesParser)
 
 
 	// Set up router
@@ -72,6 +73,10 @@ func main(){
     rulesRouter.HandleFunc("", rulesHandler.Get).Methods("GET")
     rulesRouter.HandleFunc("", rulesHandler.Update).Methods("PUT")
     rulesRouter.HandleFunc("", rulesHandler.Delete).Methods("DELETE")
+    
+    classifyRouter := r.PathPrefix("/classify").Subrouter()
+    classifyRouter.Use(rule.JWTAuth)
+    classifyRouter.HandleFunc("",rulesHandler.Classify).Methods("POST")
 
     fmt.Println("Server started on port 3000")
     log.Fatal(http.ListenAndServe(":3000", r))
