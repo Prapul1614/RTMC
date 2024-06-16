@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+option go_package = "proto/rulepb";
+
+package rulepb;
+
+service RuleService {
+    rpc CreateRule (CreateRuleRequest) returns (RuleResponse);
+    rpc GetRules (GetRulesRequest) returns (RulesResponse);
+    rpc Classify (ClassifyRequest) returns (ClassifyResponse);
+}
+
+message Rule {
+    string notify = 1;
+    string when = 2;
+    optional string id = 3;
+}
+
+message CreateRuleRequest {
+    string rule = 1;
+}
+
+message RuleResponse {
+    optional Rule rule = 1;
+    optional string message = 2;
+}
+
+message GetRulesRequest {}
+
+message RulesResponse {
+    repeated Rule rules = 1;
+    optional string message = 2;
+}
+
+message ClassifyRequest {
+    string text = 1;
+}
+
+message ClassifyResponse {
+    repeated string notifications = 1;
+}

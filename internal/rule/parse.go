@@ -17,6 +17,7 @@ type Parser struct {
 	service *Service
 }
 
+
 func NewParser(service *Service) *Parser {
 	return &Parser{service: service}
 }
@@ -24,6 +25,7 @@ func NewParser(service *Service) *Parser {
 // dummy -> 0
 // dummy -> 1 dummy of MIN,MAX
 // dummy -> 2 dummy of AND,OR,NOT
+
 
 func LastLetter(word string) rune {
 	return rune(word[len(word)-1])
@@ -46,7 +48,8 @@ func ValidNum(num string) int {
 	fmt.Println("INVALID NUMBER: ", num)
 	return -1
 }
-func (p *Parser) ParseCount(cond string, dummy int) (string, string, int) {
+func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string) {
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	// considerinf format Count "----"
 	// return Matcher, Ineq, Limit
 	l := utf8.RuneCountInString(cond)
@@ -59,25 +62,30 @@ func (p *Parser) ParseCount(cond string, dummy int) (string, string, int) {
 	}
 	if dummy == 1 {
 		if words[1][0] != '"' || LastLetter(words[len1-1]) != '"' {
-			println("InValid representation for Count Instruction in Min/Max.")
-			println("Please follow: Count \"your_string\", don't provide operator or number")
-			return "", "", -1
+			//println("InValid representation for Count Instruction in Min/Max.")
+			//println("Please follow: Count \"your_string\", don't provide operator or number")
+			msg += "InValid representation for Count Instruction in Min/Max.\n"
+			msg += "Please follow: Count \"your_string\", don't provide operator or number"
+			return "", "", -1, msg
 		}
 	} else {
 		if words[1][0] != '"' || LastLetter(words[len1-3]) != '"' || !ValidOp(words[len1-2]) || Limit == -1 {
-			println("InValid representation for Count Instruction.")
-			println("Please follow: Count \"your_string\" operator number")
-			return "", "", -1
+			//println("InValid representation for Count Instruction.")
+			//println("Please follow: Count \"your_string\" operator number")
+			msg += "InValid representation for Count Instruction.\n"
+			msg += "Please follow: Count \"your_string\" operator number"
+			return "", "", -1, msg
 		}
 	}
 
 	if dummy == 1 {
-		return cond[7 : l-1], "", 0
+		return cond[7 : l-1], "", 0, "Success"
 	}
 
-	return cond[7 : l-len(words[len1-1])-len(words[len1-2])-3], words[len1-2], Limit
+	return cond[7 : l-len(words[len1-1])-len(words[len1-2])-3], words[len1-2], Limit, "Success"
 }
-func (p *Parser) ParseLength(cond string, dummy int) (string, int) {
+func (p *Parser) ParseLength(cond string, dummy int) (string, int, string) {
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
 	Limit := -1
@@ -86,32 +94,40 @@ func (p *Parser) ParseLength(cond string, dummy int) (string, int) {
 	}
 	if dummy == 1 {
 		if len1 != 1 {
-			println("InValid representation for Length Instruction in Min/Max.")
-			println("Please Just mention: Length")
-			return "", -1
+			//println("InValid representation for Length Instruction in Min/Max.")
+			//println("Please Just mention: Length")
+			msg += "InValid representation for Length Instruction in Min/Max.\n"
+			msg += "Please Just mention: Length"
+			return "", -1, msg
 		}
 	} else {
 		if len1 != 3 || !ValidOp(words[1]) || Limit == -1 {
-			println("InValid representation for Length Instruction.")
-			println("Please follow: Length operator number")
-			return "", -1
+			//println("InValid representation for Length Instruction.")
+			//println("Please follow: Length operator number")
+			msg += "InValid representation for Length Instruction.\n"
+			msg += "Please follow: Length operator number"
+			return "", -1, msg
 		}
 	}
 	if dummy == 1 {
-		return "", 0
+		return "", 0, "Success"
 	}
-	return words[1], Limit
+	return words[1], Limit, "Success"
 }
-func (p *Parser) ParseContains(cond string) (string, int) {
+func (p *Parser) ParseContains(cond string) (string, int, string) {
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	l := len(cond)
 	if cond[9] != '"' || cond[l-1] != '"' {
-		println("InValid representation for Contains Instruction.")
-		println("Please follow: Contains \"your_string\"")
-		return "", -1
+		//println("InValid representation for Contains Instruction.")
+		//println("Please follow: Contains \"your_string\"")
+		msg += "InValid representation for Contains Instruction.\n"
+		msg += "Please follow: Contains \"your_string\""
+		return "", -1, msg
 	}
-	return cond[10 : l-1], 0
+	return cond[10 : l-1], 0, msg
 }
-func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]primitive.ObjectID, string, int) {
+func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]primitive.ObjectID, string, int, string) {
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
 	obj := []primitive.ObjectID{}
@@ -122,15 +138,19 @@ func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]pri
 	}
 	if dummy == 1 {
 		if LastLetter(cond) != ')' || cond[4] != '(' {
-			println("InValid representation for Min/Max Instruction inside Min/Max.")
-			println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)")
-			return obj, "", -1
+			//println("InValid representation for Min/Max Instruction inside Min/Max.")
+			//println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)")
+			msg += "InValid representation for Min/Max Instruction inside Min/Max.\n"
+			msg += "Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)"
+			return obj, "", -1, msg
 		}
 	} else {
 		if cond[4] != '(' || LastLetter(words[len1-3]) != ')' || !ValidOp(words[len1-2]) || Limit == -1 {
-			println("InValid representation for Min/Max Instruction.")
-			println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number")
-			return obj, "", -1
+			//println("InValid representation for Min/Max Instruction.")
+			//println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number")
+			msg += "InValid representation for Min/Max Instruction.\n"
+			msg += "Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number"
+			return obj, "", -1, msg
 		}
 	}
 	// ip for parenthesis balance count
@@ -148,42 +168,47 @@ func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]pri
 		}
 		if v == ',' && ip == 1 && ib == 0 {
 			if cond[i-1] != ' ' || cond[i+1] != ' ' {
-				fmt.Println("Please use spaces and commas',' between Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
-				return []primitive.ObjectID{}, "", -1
+				//fmt.Println("Please use spaces and commas',' between Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
+				msg += "Please use spaces and commas',' between Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4"
+				return []primitive.ObjectID{}, "", -1, msg
 			}
 			if cond[i-2] == ' ' || cond[i+2] == ' ' {
-				fmt.Println("Please use only one single spaces between commas',' and Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
-				return []primitive.ObjectID{}, "", -1
+				//fmt.Println("Please use only one single spaces between commas',' and Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4")
+				msg += "Please use only one single spaces between commas',' and Instructions in Min/Max Eg:- MIN(COUNT \"a\" , COUNT \"b\") > 4"
+				return []primitive.ObjectID{}, "", -1, msg
 			}
 		}
 		if (v == ',' && ip == 1 && ib == 0) || (v == ')' && ip == 0) {
 			// this code checks if v == ')' this is last parenthesis after this only op number are their
 			if v == ')' && (i != len(cond)-1 && (i+2+len(words[len1-2])+len(words[len1-1]) != len(cond)-1)) {
-				println("InValid representation for Min/Max Instruction.")
-				println("After Closing Parenthesis of MIN/MAX Instruction their should be only operator and number")
-				println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number")
-				return obj, "", -1
+				//println("InValid representation for Min/Max Instruction.")
+				//println("After Closing Parenthesis of MIN/MAX Instruction their should be only operator and number")
+				//println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number")
+				msg += "InValid representation for Min/Max Instruction.\n"
+				msg += "After Closing Parenthesis of MIN/MAX Instruction their should be only operator and number.\n"
+				msg += "Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number."
+				return obj, "", -1, msg
 			}
 			if v == ',' {
-				Nobj = p.ParseCondition(ctx, cond[cond_start:i-1], 1, "")
+				Nobj,msg = p.ParseCondition(ctx, cond[cond_start:i-1], 1, "", primitive.NilObjectID)
 				cond_start = i + 2
 			} else {
-				Nobj = p.ParseCondition(ctx, cond[cond_start:i], 1, "")
+				Nobj,msg = p.ParseCondition(ctx, cond[cond_start:i], 1, "", primitive.NilObjectID)
 			}
 			if Nobj == primitive.NilObjectID {
-				return []primitive.ObjectID{}, "", -1
+				return []primitive.ObjectID{}, "", -1, msg
 			}
 			obj = append(obj, Nobj)
 		}
 	}
 	if dummy == 1 {
-		return obj, "", 0
+		return obj, "", 0, "Success"
 	}
-	return obj, words[len1-2], Limit
+	return obj, words[len1-2], Limit, "Success"
 }
-func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.ObjectID, int) {
+func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.ObjectID, int, string) {
 	// PLEASE ONCE GO THRU THIS CODE
-
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	var obj = []primitive.ObjectID{}
 	var Nobj primitive.ObjectID
 	// ip for parenthesis balance count
@@ -197,9 +222,11 @@ func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.Objec
 		cond_start = 4
 	}
 	if LastLetter(cond) != ')' || cond[ii] != '(' {
-		println("InValid representation for Min/Max Instruction inside Min/Max.")
-		println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)")
-		return obj, -1
+		//println("InValid representation for Min/Max Instruction inside Min/Max.")
+		//println("Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)")
+		msg += "InValid representation for Min/Max Instruction inside Min/Max.\n"
+		msg += "Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)"
+		return obj, -1, msg
 	}
 
 	for i, v := range cond {
@@ -213,55 +240,63 @@ func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.Objec
 		}
 		if v == ',' && ip == 1 && ib == 0 {
 			if cond[i-1] != ' ' || cond[i+1] != ' ' {
-				fmt.Println("Please use spaces and commas',' between Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)")
-				return []primitive.ObjectID{}, -1
+				//fmt.Println("Please use spaces and commas',' between Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)")
+				msg += "Please use spaces and commas',' between Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)"
+				return []primitive.ObjectID{}, -1, msg
 			}
 			if cond[i-2] == ' ' || cond[i+2] == ' ' {
-				fmt.Println("Please use only one single spaces between commas',' and Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)")
-				return []primitive.ObjectID{}, -1
+				//fmt.Println("Please use only one single spaces between commas',' and Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)")
+				msg += "Please use only one single spaces between commas',' and Instructions in AND/OR Eg:- AND(COUNT \"a\"  < 4 , COUNT \"b\" > 3)"
+				return []primitive.ObjectID{}, -1, msg
 			}
 		}
 		if (v == ',' && ip == 1 && ib == 0) || (v == ')' && ip == 0) {
 			// this code checks if v == ')' this is last parenthesis after this only op number are their
 			if v == ')' && i != len(cond)-1 {
-				println("InValid representation for AND/OR Instruction.")
-				println("After Closing Parenthesis of AND/OR Instruction their should not be operator and number")
-				println("Please follow: AND/OR (Instruction1 , Instruction2 , ... , InstructionN)")
-				return obj, -1
+				//println("InValid representation for AND/OR Instruction.")
+				//println("After Closing Parenthesis of AND/OR Instruction their should not be operator and number")
+				//println("Please follow: AND/OR (Instruction1 , Instruction2 , ... , InstructionN)")
+				msg += "After Closing Parenthesis of AND/OR Instruction their should not be operator and number\n"
+				msg += "Please follow: AND/OR (Instruction1 , Instruction2 , ... , InstructionN)"
+				return obj, -1, msg
 			}
 			if v == ',' {
-				Nobj = p.ParseCondition(ctx, cond[cond_start:i-1], 2, "")
+				Nobj,msg = p.ParseCondition(ctx, cond[cond_start:i-1], 2, "", primitive.NilObjectID)
 				cond_start = i + 2
 			} else {
-				Nobj = p.ParseCondition(ctx, cond[cond_start:i], 2, "")
+				Nobj,msg = p.ParseCondition(ctx, cond[cond_start:i], 2, "", primitive.NilObjectID)
 			}
 			if Nobj == primitive.NilObjectID {
-				return []primitive.ObjectID{}, -1
+				return []primitive.ObjectID{}, -1, msg
 			}
 			obj = append(obj, Nobj)
 		}
 	}
-	return obj, 0
+	return obj, 0, "Success"
 }
-func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectID, int) {
+func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectID, int, string) {
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	l := len(cond)
 	var obj = []primitive.ObjectID{}
 	if cond[4] != '(' || cond[l-1] != ')' {
-		println("InValid representation for NOT Instruction.")
-		println("Please follow: NOT (Instruction")
+		// println("InValid representation for NOT Instruction.")
+		// println("Please follow: NOT (Instruction")
+		msg += "InValid representation for NOT Instruction.\n"
+		msg += "Please follow: NOT (Instruction)."
+		return obj, -1, msg
 	}
-	Nobj := p.ParseCondition(ctx, cond[5:l-1], 2, "")
+	Nobj,msg := p.ParseCondition(ctx, cond[5:l-1], 2, "",primitive.NilObjectID)
 	if Nobj == primitive.NilObjectID {
-		return obj, -1
+		return obj, -1, msg
 	}
 	obj = append(obj, Nobj)
-	return obj, 0
+	return obj, 0, "Success"
 }
 
-var owner primitive.ObjectID
 
-func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, temp string) primitive.ObjectID {
+func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, temp string, owner primitive.ObjectID) (primitive.ObjectID, string) {
 	//fmt.Println("\n\n\n",cond,"\n")
+	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	var ip, ib int
 	for _, v := range cond {
 		if v == '(' {
@@ -273,8 +308,9 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 			ib = (ib + 1) % 2
 		}
 		if v == ',' && ip == 0 && ib == 0 {
-			fmt.Println("If you are using Multiple Instructions using comma\",\" Please use one of AND, OR, MAX, MIN")
-			return primitive.NilObjectID
+			// fmt.Println("If you are using Multiple Instructions using comma\",\" Please use one of AND, OR, MAX, MIN")
+			msg += "If you are using Multiple Instructions using comma\",\" Please use one of AND, OR, MAX, MIN"
+			return primitive.NilObjectID, msg
 		}
 	}
 	Names := []string{"Count", "Length", "Contains", "MAX", "MIN", "OR", "AND", "NOT"}
@@ -291,13 +327,16 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 	for i, v := range cond {
 		//println(i,v,' ','(')
 		if v == '(' || v == '"' {
-			fmt.Println("Please provide space between Instruction name and ", string(v), ".")
+			//fmt.Println("Please provide space between Instruction name and ", string(v), ".")
+			msg += fmt.Sprintf("Please provide space between Instruction name and %v .\n", string(v))
 			if v == '(' {
-				fmt.Println(" Example: MIN (condition1 , condition2) ")
+				//fmt.Println(" Example: MIN (condition1 , condition2) ")
+				msg += " Example: MIN (condition1 , condition2) "
 			} else {
-				fmt.Println(" Example: Count \"abc\" operater number")
+				//fmt.Println(" Example: Count \"abc\" operater number")
+				msg += " Example: Count \"abc\" operater number"
 			}
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 		if v == ' ' || i == len(cond)-1 {
 			if i == len(cond)-1 && v != ' ' {
@@ -314,70 +353,75 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 				}
 			}
 			if !have {
-				fmt.Println("Not supports your condition", Name)
-				return primitive.NilObjectID
+				// fmt.Println("Not supports your condition", Name)
+				msg += fmt.Sprintf("Not supports your condition %v .\n Supports only %v", Name, Names)
+				return primitive.NilObjectID, msg
 			}
 			break
 		}
 		if i == 8 {
-			fmt.Println("Not supports your condition. Supports only: ", Names)
-			return primitive.NilObjectID
+			// fmt.Println("Not supports your condition. Supports only: ", Names)
+			msg += fmt.Sprintf("Not supports your condition. Supports only %v", Names)
+			return primitive.NilObjectID, msg
 		}
 	}
 	//println(ii)
 	if dummy == 1 {
 		if Name == "Contains" || Name == "AND" || Name == "OR" || Name == "NOT" {
-			fmt.Println("You cant have ", Name, "inside Min/Max Instruction")
-			return primitive.NilObjectID
+			// fmt.Println("You cant have ", Name, "inside Min/Max Instruction")
+			msg += fmt.Sprintf("You cant have %v inside Min/Max Instruction", Name)
+			return primitive.NilObjectID, msg
 		}
 	}
+	
 	if Name == "Count" {
 		fmt.Println("Gointing into ParseCount")
-		Matcher, Ineq, Limit = p.ParseCount(cond, dummy)
+		Matcher, Ineq, Limit, msg = p.ParseCount(cond, dummy)
 		fmt.Println("Count: ", Matcher, ',', Ineq, ',', Limit)
 		if Limit == -1 {
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 	} else if Name == "Length" {
 		fmt.Println("Going into ParseLength")
-		Ineq, Limit = p.ParseLength(cond, dummy)
+		Ineq, Limit, msg = p.ParseLength(cond, dummy)
 		fmt.Println("Length: ", Ineq, ',', Limit)
 		if Limit == -1 {
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 	} else if Name == "Contains" {
 		fmt.Println("Going into ParseContains")
-		Matcher, tag = p.ParseContains(cond)
+		Matcher, tag, msg = p.ParseContains(cond)
 		fmt.Println("Contains: ", Matcher)
 		if tag == -1 {
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 	} else if Name == "MAX" || Name == "MIN" {
 		fmt.Println("Going into ParseMinMax")
-		Obj, Ineq, Limit = p.ParseMinMax(ctx, cond, dummy)
+		Obj, Ineq, Limit, msg = p.ParseMinMax(ctx, cond, dummy)
 		/*fmt.Println(Name, ": ")
 		for i, v := range Obj {
 			fmt.Println(i, v)
 		}*/
 		fmt.Println(Name, Ineq, ',', Limit)
 		if Limit == -1 {
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 	} else if Name == "AND" || Name == "OR" {
 		fmt.Println("Going into ParseAndOr")
-		Obj, tag = p.ParseAndOr(ctx, cond)
+		Obj, tag, msg = p.ParseAndOr(ctx, cond)
 		if tag == -1 {
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 	} else if Name == "NOT" {
 		fmt.Println("Going into ParseNot")
-		Obj, tag = p.ParseNot(ctx, cond)
+		Obj, tag, msg = p.ParseNot(ctx, cond)
 		if tag == -1 {
-			return primitive.NilObjectID
+			return primitive.NilObjectID, msg
 		}
 	} else {
-		fmt.Println("InValid Instruction: ", Name)
-		return primitive.NilObjectID
+		// fmt.Println("InValid Instruction: ", Name)
+		msg += fmt.Sprintf("InValid Instruction: %v", Name)
+		return primitive.NilObjectID, msg
 	}
 	var Nrule Rule
 	Nrule.Name = Name
@@ -405,27 +449,31 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 			ID, err = p.service.CreateRule(ctx, &Nrule, primitive.NilObjectID)
 		}
 		if err != nil {
-			println(err.Error())
-			return primitive.NilObjectID
+			//println(err.Error())
+			msg += "Error from CreateRule: " + err.Error()
+			return primitive.NilObjectID, msg
 		}
 	}
 	// fmt.Println("printing after ParseCondition:\n", Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
-	return ID
+	return ID, "Success"
 }
 
-func (p *Parser) ParseRule(ctx context.Context, text string, rule_owner primitive.ObjectID) (Rule, error) {
-	var rule Rule
+func (p *Parser) ParseRule(ctx context.Context, text string, rule_owner primitive.ObjectID) (Rule, string, error) {
+	var rule,empty_rule Rule
 	notifyPattern := regexp.MustCompile(`NOTIFY\s+(.*?)\s+WHEN\s+(.*)`)
 	matches := notifyPattern.FindStringSubmatch(text)
 	if len(matches) != 3 {
-		return rule, errors.New("not of form: NOTIFY \"your_classification\" WHEN \"your_condition\"")
+		return rule,  "Not of form: NOTIFY \"your_classification\" WHEN \"your_condition\"" , errors.New("not of form: NOTIFY \"your_classification\" WHEN \"your_condition\"")
 	}
 
-	owner = rule_owner
-	ID := p.ParseCondition(ctx, matches[2], 0, matches[1])
+	ID,msg := p.ParseCondition(ctx, matches[2], 0, matches[1], rule_owner)
 
-	// What happens when ID is nilObjectID
 	err := p.service.repo.collection.FindOne(ctx, bson.D{{Key: "_id", Value: ID}}).Decode(&rule)
 
-	return rule, err
+	if ID == primitive.NilObjectID {
+		return empty_rule, msg, err
+	}
+	// What happens when ID is nilObjectID
+
+	return rule, "Error in FindOne after Parsing.", err
 }

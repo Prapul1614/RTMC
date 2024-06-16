@@ -4,16 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-
+	//"io/ioutil"
+    "errors"
 	//"fmt"
 	"net/http"
 
 	//"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+    "github.com/Prapul1614/RTMC/proto/rulepb"
+    "github.com/Prapul1614/RTMC/internal/middleware"
 )
 
 type Handler struct {
+    rulepb.UnimplementedRuleServiceServer
     service *Service
     parser *Parser
 }
@@ -25,6 +29,78 @@ func NewHandler(service *Service, parser *Parser) *Handler {
     }
 }
 
+func (h *Handler) Classify(ctx context.Context, req *rulepb.ClassifyRequest) (*rulepb.ClassifyResponse, error) {
+    claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)
+    if !ok {
+        return nil, errors.New("could not retrieve claims from context")
+    }
+
+    textString := req.Text
+    
+    owner,_ := primitive.ObjectIDFromHex(claims.Subject) // or claims.ID ??
+
+    var notifications = []string{}
+    rule, err := h.service.GetRule(context.Background(), owner)
+    if err != nil {
+        notifications = append(notifications, "No rules added yet...")
+       return &rulepb.ClassifyResponse{Notifications: notifications}, nil
+    }
+
+    for _,v := range rule {
+        ans := h.service.ImplementRule(context.Background(), textString, &v)
+        if ans {
+            fmt.Println("\n\nSuccess: ", v.When)
+            notifications = append(notifications, v.Notify)
+        } else {
+            fmt.Println("\n\n Not Success: ", v.When)
+        }
+    }
+
+    return &rulepb.ClassifyResponse{Notifications: notifications}, nil
+}
+
+func (h *Handler) CreateRule(ctx context.Context, req *rulepb.CreateRuleRequest) (*rulepb.RuleResponse, error) {    
+    claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)
+    if !ok {
+        return nil, errors.New("could not retrieve claims from context")
+    }
+
+    ruleString := req.Rule
+    owner,_ := primitive.ObjectIDFromHex(claims.Subject) 
+
+    rule, msg, err := h.parser.ParseRule(context.Background(), ruleString, owner)
+    if err != nil {
+        return &rulepb.RuleResponse{Message: &msg}, nil
+    }
+    return &rulepb.RuleResponse{
+        Rule: &rulepb.Rule{Notify: rule.Notify, When: rule.When} }, nil
+}
+
+func (h *Handler) GetRules(ctx context.Context, req *rulepb.GetRulesRequest) (*rulepb.RulesResponse, error) {    
+    claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)
+    if !ok {
+        return nil, errors.New("could not retrieve claims from context")
+    }
+
+    owner,_ := primitive.ObjectIDFromHex(claims.Subject) 
+    rules, err := h.service.GetRule(context.Background(), owner)
+    if err != nil {
+        msg := "Rules not found for you, Please create some and try again"
+        return &rulepb.RulesResponse{Message: &msg}, nil
+    }
+
+    protoRules := make([]*rulepb.Rule, len(rules))
+    for i, rule := range rules {
+        protoRules[i] = &rulepb.Rule{
+            Notify: rule.Notify,
+            When:   rule.When,
+        }
+    }
+
+    return &rulepb.RulesResponse{Rules: protoRules}, nil
+
+}
+/*
 func (h *Handler) Classify(w http.ResponseWriter, r *http.Request) {
 
     claims, ok := r.Context().Value(claimsKey).(*Claims)
@@ -69,11 +145,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    /*var rule Rule
-    if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
-        http.Error(w, "Invalid request payload", http.StatusBadRequest)
-        return
-    }*/
     body, err := ioutil.ReadAll(r.Body)
     if err != nil {
         http.Error(w, err.Error(), http.StatusBadRequest)
@@ -111,7 +182,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
     }
 
     json.NewEncoder(w).Encode(rule)
-}
+}*/
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
     id, err := primitive.ObjectIDFromHex(r.URL.Query().Get("id"))
