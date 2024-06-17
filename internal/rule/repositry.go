@@ -21,12 +21,7 @@ func NewRepository(db *mongo.Database, collectionName string) *Repository {
 }
 // Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
 func (r *Repository) FindDocWithWhenNotify(ctx context.Context, rule *Rule) (*Rule, error) {
-    // Check if this is appropriate
     filter := bson.M{
-        //"name": rule.Name,
-        //"matcher": rule.Matcher,
-        //"limit": rule.Limit,
-        //"ineq": rule.Ineq,
         "notify": rule.Notify,
         "when" : rule.When,
     }

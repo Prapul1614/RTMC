@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RuleServiceClient interface {
+	StreamData(ctx context.Context, opts ...grpc.CallOption) (RuleService_StreamDataClient, error)
 	CreateRule(ctx context.Context, in *CreateRuleRequest, opts ...grpc.CallOption) (*RuleResponse, error)
 	GetRules(ctx context.Context, in *GetRulesRequest, opts ...grpc.CallOption) (*RulesResponse, error)
 	Classify(ctx context.Context, in *ClassifyRequest, opts ...grpc.CallOption) (*ClassifyResponse, error)
@@ -33,6 +34,37 @@ type ruleServiceClient struct {
 
 func NewRuleServiceClient(cc grpc.ClientConnInterface) RuleServiceClient {
 	return &ruleServiceClient{cc}
+}
+
+func (c *ruleServiceClient) StreamData(ctx context.Context, opts ...grpc.CallOption) (RuleService_StreamDataClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RuleService_ServiceDesc.Streams[0], "/rulepb.RuleService/StreamData", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &ruleServiceStreamDataClient{stream}
+	return x, nil
+}
+
+type RuleService_StreamDataClient interface {
+	Send(*StreamRequest) error
+	Recv() (*StreamResponse, error)
+	grpc.ClientStream
+}
+
+type ruleServiceStreamDataClient struct {
+	grpc.ClientStream
+}
+
+func (x *ruleServiceStreamDataClient) Send(m *StreamRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *ruleServiceStreamDataClient) Recv() (*StreamResponse, error) {
+	m := new(StreamResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *ruleServiceClient) CreateRule(ctx context.Context, in *CreateRuleRequest, opts ...grpc.CallOption) (*RuleResponse, error) {
@@ -66,6 +98,7 @@ func (c *ruleServiceClient) Classify(ctx context.Context, in *ClassifyRequest, o
 // All implementations must embed UnimplementedRuleServiceServer
 // for forward compatibility
 type RuleServiceServer interface {
+	StreamData(RuleService_StreamDataServer) error
 	CreateRule(context.Context, *CreateRuleRequest) (*RuleResponse, error)
 	GetRules(context.Context, *GetRulesRequest) (*RulesResponse, error)
 	Classify(context.Context, *ClassifyRequest) (*ClassifyResponse, error)
@@ -76,6 +109,9 @@ type RuleServiceServer interface {
 type UnimplementedRuleServiceServer struct {
 }
 
+func (UnimplementedRuleServiceServer) StreamData(RuleService_StreamDataServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamData not implemented")
+}
 func (UnimplementedRuleServiceServer) CreateRule(context.Context, *CreateRuleRequest) (*RuleResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRule not implemented")
 }
@@ -96,6 +132,32 @@ type UnsafeRuleServiceServer interface {
 
 func RegisterRuleServiceServer(s grpc.ServiceRegistrar, srv RuleServiceServer) {
 	s.RegisterService(&RuleService_ServiceDesc, srv)
+}
+
+func _RuleService_StreamData_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RuleServiceServer).StreamData(&ruleServiceStreamDataServer{stream})
+}
+
+type RuleService_StreamDataServer interface {
+	Send(*StreamResponse) error
+	Recv() (*StreamRequest, error)
+	grpc.ServerStream
+}
+
+type ruleServiceStreamDataServer struct {
+	grpc.ServerStream
+}
+
+func (x *ruleServiceStreamDataServer) Send(m *StreamResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *ruleServiceStreamDataServer) Recv() (*StreamRequest, error) {
+	m := new(StreamRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _RuleService_CreateRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -172,6 +234,13 @@ var RuleService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RuleService_Classify_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamData",
+			Handler:       _RuleService_StreamData_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "rule.proto",
 }

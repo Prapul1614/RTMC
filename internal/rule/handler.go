@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	//"io/ioutil"
+    "io"
     "errors"
-	//"fmt"
+    "log"
+	"os"
 	"net/http"
+    "strings"
 
 	//"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+    "google.golang.org/grpc/metadata"
+    "github.com/joho/godotenv"
+    "github.com/dgrijalva/jwt-go"
 
     "github.com/Prapul1614/RTMC/proto/rulepb"
     "github.com/Prapul1614/RTMC/internal/middleware"
@@ -26,6 +32,67 @@ func NewHandler(service *Service, parser *Parser) *Handler {
     return &Handler{
         service: service,
         parser: parser,
+    }
+}
+
+func (h* Handler) StreamData(stream rulepb.RuleService_StreamDataServer) error {
+    err := godotenv.Load()
+    if err != nil {
+        log.Fatal("Error loading .env file")
+    }
+
+    var jwtKey = []byte(os.Getenv("jwtKey"))
+
+    // Get metadata from the stream context
+    md, ok := metadata.FromIncomingContext(stream.Context())
+    if !ok {
+        return fmt.Errorf("missing metadata")
+    }
+
+    authHead,ok := md["authorization"]
+    if !ok || len(authHead) == 0 {
+        return fmt.Errorf("missing authorization token")
+    }
+
+    tokenString := strings.TrimPrefix(authHead[0], "Bearer ")
+    claims := &jwt.StandardClaims{}
+    token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+        return jwtKey, nil
+    })
+    if err != nil || !token.Valid {
+        return fmt.Errorf("invalid token: %v", err)
+    }
+
+    owner,_ := primitive.ObjectIDFromHex(claims.Subject)
+    var notifications = []string{}
+    rule, err := h.service.GetRule(context.Background(), owner)
+        if err != nil {
+            notifications = append(notifications, "No rules added yet...")
+            if err := stream.Send(&rulepb.StreamResponse{Notifications: notifications}); err != nil {
+                return err
+            }
+        }
+    for {
+        msg, err := stream.Recv()
+        if err == io.EOF { return nil }
+        if err != nil { return err }
+
+        textString := msg.Text // .GetText ??
+
+        for _,v := range rule {
+            ans := h.service.ImplementRule(context.Background(), textString, &v)
+            if ans {
+                fmt.Println("\n\nSuccess: ", v.When)
+                notifications = append(notifications, v.Notify)
+            } else {
+                fmt.Println("\n\n Not Success: ", v.When)
+            }
+        }
+
+        if err := stream.Send(&rulepb.StreamResponse{Notifications: notifications}); err != nil {
+            return err
+        }
+
     }
 }
 
@@ -100,89 +167,6 @@ func (h *Handler) GetRules(ctx context.Context, req *rulepb.GetRulesRequest) (*r
     return &rulepb.RulesResponse{Rules: protoRules}, nil
 
 }
-/*
-func (h *Handler) Classify(w http.ResponseWriter, r *http.Request) {
-
-    claims, ok := r.Context().Value(claimsKey).(*Claims)
-    if !ok {
-        http.Error(w, "No claims found in context", http.StatusUnauthorized)
-        return
-    }
-
-    body, err := ioutil.ReadAll(r.Body)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-    textString := string(body)
-    fmt.Println("\n\n\n\n",textString)
-
-    owner,_ := primitive.ObjectIDFromHex(claims.Subject)
-
-    rule, err := h.service.GetRule(context.Background(), owner)
-    if err != nil {
-        http.Error(w, "Rules not found", http.StatusNotFound)
-        return
-    }
-
-    for _,v := range rule {
-        ans := h.service.ImplementRule(context.Background(), textString, &v)
-        if ans {
-            fmt.Println("\n\nSuccess: ", v.When)
-        } else {
-            fmt.Println("\n\n Not Success: ", v.When)
-        }
-    }
-
-    w.WriteHeader(http.StatusOK)
-}
-
-func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-
-	claims, ok := r.Context().Value(claimsKey).(*Claims)
-    if !ok {
-        http.Error(w, "No claims found in context", http.StatusUnauthorized)
-        return
-    }
-
-    body, err := ioutil.ReadAll(r.Body)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-    ruleString := string(body)
-    fmt.Println("\n\n\n\n",ruleString)
-
-    owner,_ := primitive.ObjectIDFromHex(claims.Subject)
-
-    rule, err := h.parser.ParseRule(context.Background(), ruleString, owner)
-    if err != nil {
-        println(err.Error())
-        http.Error(w, "Error creating rule", http.StatusInternalServerError)
-        return
-    }
-
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(rule)
-}
-
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-    claims, ok := r.Context().Value(claimsKey).(*Claims)
-    if !ok {
-        http.Error(w, "No claims found in context", http.StatusUnauthorized)
-        return
-    }
-
-    owner,_ := primitive.ObjectIDFromHex(claims.Subject)
-
-    rule, err := h.service.GetRule(context.Background(), owner)
-    if err != nil {
-        http.Error(w, "Rule not found", http.StatusNotFound)
-        return
-    }
-
-    json.NewEncoder(w).Encode(rule)
-}*/
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
     id, err := primitive.ObjectIDFromHex(r.URL.Query().Get("id"))

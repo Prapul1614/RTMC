@@ -2,12 +2,7 @@ package rule
 
 import (
 	"context"
-	//"fmt"
-	//"strings"
 	"unicode/utf8"
-	//"regexp"
-	//"fmt"
-	//"log"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -144,35 +139,7 @@ func GetCount(txt string, pat string, contains bool) int {
     return count
 }
 
-/*func GetRuneCount(text string, charr string) int {
-    char := rune(charr[0])
-    count := 0
-    for _,r := range text {
-        if r == char {
-            count++
-        }
-    }
-    return count
-}
-
-func GetWordCount(text string, word string) int {
-    count := 0
-    words := strings.Fields(text)
-    for _,w := range(words) {
-        if w == word {
-            count++
-        }
-    }
-    return count
-}*/
-
 func GetContains(text string, word string) bool {
-    /*words := strings.Fields(text)
-    for _,w := range(words) {
-        if w == word {
-            return true
-        }
-    }*/
     count := GetCount(text, word, true)
     return count == 1
 }
@@ -263,13 +230,3 @@ func (s *Service) ImplementRule(ctx context.Context, text string, rule *Rule) bo
     return true
 }
 
-/*func (s *Service) ParseRule(ctx context.Context, text string) Rule {
-    var rule Rule
-    var Name,Matcher,Ineq,Notify,When string
-    var IsTheir bool
-    var Limit int
-    var Obj = []primitive.ObjectID{}
-    var ID = primitive.NewObjectID()
-    notifyPattern = regexp.MustCompile(`NOTIFY\s+(.*?)\s+WHEN\s+(.*)`)
-    return rule
-}*/

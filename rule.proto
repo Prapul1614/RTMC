@@ -5,9 +5,18 @@ option go_package = "proto/rulepb";
 package rulepb;
 
 service RuleService {
+    rpc StreamData(stream StreamRequest) returns (stream StreamResponse);
     rpc CreateRule (CreateRuleRequest) returns (RuleResponse);
     rpc GetRules (GetRulesRequest) returns (RulesResponse);
     rpc Classify (ClassifyRequest) returns (ClassifyResponse);
+}
+
+message StreamRequest {
+    string text = 1;
+}
+
+message StreamResponse {
+    repeated string notifications = 1;
 }
 
 message Rule {
