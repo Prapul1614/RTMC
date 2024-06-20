@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
-	"time"
 	"math/rand"
+	"strconv"
+	"time"
 
 	"github.com/Prapul1614/RTMC/proto/rulepb"
 	"github.com/Prapul1614/RTMC/proto/userpb"
@@ -13,14 +17,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
-var tokens = []string{
+
+/*var Tokens = []string{
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg3MDkwMDgsInN1YiI6IjY2NzAxOGFhMDc4YzIwODc0ODQwNWRlYSJ9.uoOVjD4WYLV--PYQlVdFdoxTTvNwhK4kV16S3_EksTE",
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg3MDkwNDYsInN1YiI6IjY2NzAxOGM1MDc4YzIwODc0ODQwNWRlYiJ9.tXdOW38EmF0bGMpcog5wO5JxHx6Vd7B1lBxd64bbLe8",
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg3MDkwODMsInN1YiI6IjY2NzAxOGQ0MDc4YzIwODc0ODQwNWRlYyJ9.1rM4Y78OMKm2SOkpdQN_awdSE3d0mKkHU_qIPcs0JpA",
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg3MDkxMTksInN1YiI6IjY2NzAxOGRmMDc4YzIwODc0ODQwNWRlZCJ9.jpo7K61rEdLpRpOFssSoJZWs7uFEzdUxJdCD-h0WatQ",
-}
+}*/
+var Tokens = []string{}
 
-var texts = []string{
+var Texts = []string{
 	"transaction transaction location",
 	"urgent urgent money transfer",
 	"stock price now decrease",
@@ -33,11 +39,13 @@ var texts = []string{
 	"hospital patients waiting patients no rooms for patients",
 }
 
-func TestRegister(client userpb.UserServiceClient) {
+func TestRegister(client userpb.UserServiceClient , i int ) {
 	// Test Register method
+	username := "stream_user" + strconv.Itoa(i)
+	password := "stream_password" + strconv.Itoa(i)
     registerRequest := &userpb.RegisterRequest{
-        Username: "stream_user4",
-        Password: "stream_password4",
+        Username: username,
+        Password: password,
     }
     registerResponse, err := client.Register(context.Background(), registerRequest)
     if err != nil {
@@ -49,8 +57,8 @@ func TestRegister(client userpb.UserServiceClient) {
 func TestLogin(client userpb.UserServiceClient) {
 	// Test Login method
     loginRequest := &userpb.LoginRequest{
-        Username: "stream_user4",
-        Password: "stream_password4",
+        Username: "stream_user1",
+        Password: "stream_password1",
     }
     loginResponse, err := client.Login(context.Background(), loginRequest)
     if err != nil {
@@ -59,13 +67,48 @@ func TestLogin(client userpb.UserServiceClient) {
     log.Printf("Login Response: %v", loginResponse)
 }
 
+func CreateTokens(client userpb.UserServiceClient) {
+	// Test Login method
+	Tokens = make([]string, 200)
+	for i := 1; i <= 200; i++ {		
+		loginRequest := &userpb.LoginRequest{
+			Username: "stream_user" + strconv.Itoa(i),
+			Password: "stream_password" + strconv.Itoa(i),
+		}
+		loginResponse, err := client.Login(context.Background(), loginRequest)
+		if err != nil {
+			log.Fatalf("Error while calling Login RPC: %v", err)
+		}
+		//log.Printf("Login Response: %v", loginResponse)
+		Tokens[i-1] = *loginResponse.Token
+	}
+
+	// Marshal the array into JSON format
+	data, err := json.Marshal(Tokens)
+	if err != nil { panic(err) }
+  
+	// Write the JSON data to a file
+	err = ioutil.WriteFile("tokens.json", data, 0644)
+	if err != nil { panic(err) }
+}
+
+func LoadTokens() {
+	// Read the data from the file
+	data, err := ioutil.ReadFile("tokens.json")
+	if err != nil { panic(err) }
+  
+	// Unmarshal the JSON data back into the array
+	err = json.Unmarshal(data, &Tokens)
+	if err != nil { panic(err) }
+}
+
 func TestCreate(client rulepb.RuleServiceClient) {
 	// Create a new context with a timeout
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
 
 	// Add authentication token to the context
-	token := tokens[2]
+	token := Tokens[2]
 	md := metadata.Pairs("authorization", "Bearer "+token)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
@@ -76,7 +119,7 @@ func TestCreate(client rulepb.RuleServiceClient) {
 	if err != nil {
         log.Fatalf("Error while calling CreateRule RPC: %v", err)
     }
-    log.Printf("Login Response: %v", createResponse)
+    log.Printf("Create Rule Response: %v", createResponse)
 }
 
 func TestGet(client rulepb.RuleServiceClient) {
@@ -85,7 +128,7 @@ func TestGet(client rulepb.RuleServiceClient) {
     defer cancel()
 
 	// Add authentication token to the context
-	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg2MDUxNDgsInN1YiI6IjY2NmU4MTU5OTVkYmIxYzQ1MTMyMzUwMyJ9.-QQbLkRGQcQFkc5_YpDHDamj0givVU2cqcJJcuGU9Xk" // Replace with the actual token
+	token := Tokens[0]
 	md := metadata.Pairs("authorization", "Bearer "+token)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
@@ -93,9 +136,51 @@ func TestGet(client rulepb.RuleServiceClient) {
 	getResponse, err := client.GetRules(ctx, getRequest)
 	
 	if err != nil {
-        log.Fatalf("Error while calling CreateRule RPC: %v", err)
+        log.Fatalf("Error while calling GetRule RPC: %v", err)
     }
-    log.Printf("Login Response: %v", getResponse)
+    log.Printf("Get Rule Response: %v", getResponse)
+}
+
+func CreateRulesForUsers(client rulepb.RuleServiceClient) {
+	for i := 0; i < 4;i++ {
+		// Create a new context with a timeout
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+	
+		// Add authentication token to the context
+		token := Tokens[i]
+		md := metadata.Pairs("authorization", "Bearer "+token)
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	
+		getRequest := &rulepb.GetRulesRequest{}
+		getResponse, err := client.GetRules(ctx, getRequest)
+		
+		if err != nil {
+			log.Fatalf("Error while calling GetRule RPC %v: %v",i, err)
+		}
+
+		for _,rule := range(getResponse.Rules){
+			ruleString := fmt.Sprintf("NOTIFY %s WHEN %s",rule.Notify,rule.When)
+			for j := i+4;j < 200; j+=4 {
+				// Create a new context with a timeout
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+			
+				// Add authentication token to the context
+				token := Tokens[j]
+				md := metadata.Pairs("authorization", "Bearer "+token)
+				ctx = metadata.NewOutgoingContext(ctx, md)
+			
+				createRequest := &rulepb.CreateRuleRequest{
+					Rule: ruleString,
+				}
+				_, err := client.CreateRule(ctx, createRequest)
+				if err != nil {
+					log.Fatalf("Error while calling CreateRule RPC %v,%v: %v",i,j, err)
+				}
+			}
+		}
+	}
 }
 
 func TestClassify(client rulepb.RuleServiceClient) {
@@ -119,7 +204,7 @@ func TestClassify(client rulepb.RuleServiceClient) {
 }
 
 func TestStream(client rulepb.RuleServiceClient) {
-	token := tokens[0]
+	token := Tokens[0]
 	md := metadata.Pairs("authorization", "Bearer "+token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
@@ -128,7 +213,7 @@ func TestStream(client rulepb.RuleServiceClient) {
         log.Fatalf("could not create stream: %v", err)
     }
 	for i := 0;i < 10;i++ {
-		err := stream.Send(&rulepb.StreamRequest{Text: texts[rand.Intn(10)]})
+		err := stream.Send(&rulepb.StreamRequest{Text: Texts[rand.Intn(10)]})
         if err != nil {
             log.Fatalf("could not send text: %v", err)
         }
@@ -142,6 +227,7 @@ func TestStream(client rulepb.RuleServiceClient) {
 		for _,v := range response.Notifications {
 			log.Print(v)
 		}
+		time.Sleep(100*time.Millisecond)
     }
 
     stream.CloseSend()
@@ -154,21 +240,24 @@ func main() {
     }
     defer conn.Close()
 
-    //client := userpb.NewUserServiceClient(conn)
-	client := rulepb.NewRuleServiceClient(conn)
+    client := userpb.NewUserServiceClient(conn)
+	//client := rulepb.NewRuleServiceClient(conn)
 
-    //TestRegister(client)
+    //TestRegister(client, 1)
 
     //TestLogin(client)
+	CreateTokens(client)
+	//LoadTokens()
 
 	//TestCreate(client)
 
 	//TestGet(client)
+	//CreateRulesForUsers(client)
 
 	//TestClassify(client)
 
-	TestStream(client)
+	//TestStream(client)
 
-	//fmt.Print(client)
+	//print(client)
 
 }

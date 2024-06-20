@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+    "errors"
 
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
@@ -27,7 +28,7 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 
     user, err := s.repo.FindByUsername(ctx, username)
     if err != nil {
-        return "", err
+        return "", fmt.Errorf("username incorrect")
     }
 
     err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
@@ -45,13 +46,17 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
     tokenString, err := token.SignedString(jwtKey)
     if err != nil {
-        return "", err
+        return "", fmt.Errorf("error creating token: %v",err)
     }
 
     return tokenString, nil
 }
 
 func (s *Service) Register(ctx context.Context, username, password string) error {
+    _, err := s.repo.FindByUsername(ctx, username)
+    if err == nil {
+        return errors.New("User already present")
+    }
 
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
     if err != nil {

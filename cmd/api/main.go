@@ -1,27 +1,41 @@
 package main
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"log"
+	"net/http"
+
 	//"net/http"
-    "net"
+	"net"
 
 	//"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-    "google.golang.org/grpc"
-    //"google.golang.org/grpc/reflection"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/grpc"
 
-	"github.com/Prapul1614/RTMC/internal/user"
+	//"google.golang.org/grpc/reflection"
+
+	"github.com/Prapul1614/RTMC/internal/middleware"
 	"github.com/Prapul1614/RTMC/internal/rule"
-    "github.com/Prapul1614/RTMC/internal/middleware"
-    "github.com/Prapul1614/RTMC/proto/userpb"
-    "github.com/Prapul1614/RTMC/proto/rulepb"
+	"github.com/Prapul1614/RTMC/internal/user"
+	"github.com/Prapul1614/RTMC/proto/rulepb"
+	"github.com/Prapul1614/RTMC/proto/userpb"
 )
 
 var client *mongo.Client
+
+func muxserver(rulesHandler *rule.Handler) {
+    r := mux.NewRouter()
+    classifyRouter := r.PathPrefix("/classify").Subrouter()
+    classifyRouter.Use(middleware.JWTAuth_http)
+    classifyRouter.HandleFunc("",rulesHandler.Classify_http).Methods("POST")
+
+    fmt.Println("Server started on port 8000")
+    log.Fatal(http.ListenAndServe(":8000", r))
+}
 
 func main(){
 	fmt.Println("Starting API....")
@@ -57,6 +71,9 @@ func main(){
     rulesService := rule.NewService(rulesRepo, *userRepo)
     rulesParser := rule.NewParser(rulesService)
     rulesHandler := rule.NewHandler(rulesService, rulesParser)
+    rulesRepo.CreateIndexOwners()
+
+    muxserver(rulesHandler)
 
     // Create a new gRPC server
     grpcServer := grpc.NewServer(
@@ -71,6 +88,7 @@ func main(){
     // Enable reflection for gRPC server
     // reflection.Register(grpcServer)
 
+
     // Listen on port 3000
     lis, err := net.Listen("tcp", ":3000")
     if err != nil {
@@ -81,4 +99,5 @@ func main(){
     if err := grpcServer.Serve(lis); err != nil {
         log.Fatalf("Failed to serve gRPC server: %v", err)
     }
+
 }

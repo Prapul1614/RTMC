@@ -4,22 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	//"io/ioutil"
-    "io"
-    "errors"
-    "log"
-	"os"
+	"io/ioutil"
+	"sync"
+	"errors"
+	"io"
+	"log"
 	"net/http"
-    "strings"
+	"os"
+	"strings"
 
-	//"go.mongodb.org/mongo-driver/bson"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-    "google.golang.org/grpc/metadata"
-    "github.com/joho/godotenv"
-    "github.com/dgrijalva/jwt-go"
+	"google.golang.org/grpc/metadata"
 
-    "github.com/Prapul1614/RTMC/proto/rulepb"
-    "github.com/Prapul1614/RTMC/internal/middleware"
+	"github.com/Prapul1614/RTMC/internal/middleware"
+	"github.com/Prapul1614/RTMC/proto/rulepb"
 )
 
 type Handler struct {
@@ -73,19 +73,17 @@ func (h* Handler) StreamData(stream rulepb.RuleService_StreamDataServer) error {
             }
         }
     for {
+        notifications = []string{}
         msg, err := stream.Recv()
         if err == io.EOF { return nil }
         if err != nil { return err }
 
-        textString := msg.Text // .GetText ??
+        textString := msg.Text 
 
         for _,v := range rule {
             ans := h.service.ImplementRule(context.Background(), textString, &v)
             if ans {
-                fmt.Println("\n\nSuccess: ", v.When)
                 notifications = append(notifications, v.Notify)
-            } else {
-                fmt.Println("\n\n Not Success: ", v.When)
             }
         }
 
@@ -104,7 +102,7 @@ func (h *Handler) Classify(ctx context.Context, req *rulepb.ClassifyRequest) (*r
 
     textString := req.Text
     
-    owner,_ := primitive.ObjectIDFromHex(claims.Subject) // or claims.ID ??
+    owner,_ := primitive.ObjectIDFromHex(claims.Subject) 
 
     var notifications = []string{}
     rule, err := h.service.GetRule(context.Background(), owner)
@@ -116,15 +114,72 @@ func (h *Handler) Classify(ctx context.Context, req *rulepb.ClassifyRequest) (*r
     for _,v := range rule {
         ans := h.service.ImplementRule(context.Background(), textString, &v)
         if ans {
-            fmt.Println("\n\nSuccess: ", v.When)
             notifications = append(notifications, v.Notify)
-        } else {
-            fmt.Println("\n\n Not Success: ", v.When)
         }
     }
 
     return &rulepb.ClassifyResponse{Notifications: notifications}, nil
 }
+
+func (h *Handler) Classify_http(w http.ResponseWriter, r *http.Request) {
+
+    claims, ok := r.Context().Value(middleware.ClaimsKey).(*middleware.Claims)
+    if !ok {
+        http.Error(w, "No claims found in context", http.StatusUnauthorized)
+        return
+    }
+
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+    textString := string(body)
+    
+
+    owner,_ := primitive.ObjectIDFromHex(claims.Subject)
+
+    rule, err := h.service.GetRule(context.Background(), owner)
+    if err != nil {
+        http.Error(w, "Rules not found", http.StatusNotFound)
+        return
+    }
+    
+    var wg sync.WaitGroup
+	var mu sync.Mutex
+	notification := []string{}
+
+	// Channel to handle results from goroutines
+	results := make(chan string, len(rule))
+	for _, v := range rule {
+		wg.Add(1)
+		go func(v Rule) {
+			defer wg.Done()
+			if h.service.ImplementRule(context.Background(), textString, &v) {
+				results <- v.Notify
+			} else {
+				results <- "" // Send an empty string if the rule implemented was not satisfied
+			}
+		}(v)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	for result := range results {
+		if result != "" {
+			mu.Lock()
+			notification = append(notification, result)
+			mu.Unlock()
+		}
+	}
+
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(notification)
+}
+
 
 func (h *Handler) CreateRule(ctx context.Context, req *rulepb.CreateRuleRequest) (*rulepb.RuleResponse, error) {    
     claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)

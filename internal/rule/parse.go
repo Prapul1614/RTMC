@@ -37,7 +37,7 @@ func ValidOp(op string) bool {
 			return true
 		}
 	}
-	fmt.Println("INVALID OPERATOR: ", op)
+	//fmt.Println("INVALID OPERATOR: ", op)
 	return false
 }
 func ValidNum(num string) int {
@@ -45,7 +45,7 @@ func ValidNum(num string) int {
 	if err == nil {
 		return intVal
 	}
-	fmt.Println("INVALID NUMBER: ", num)
+	//fmt.Println("INVALID NUMBER: ", num)
 	return -1
 }
 func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string) {
@@ -334,41 +334,31 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 	}
 	
 	if Name == "Count" {
-		fmt.Println("Gointing into ParseCount")
 		Matcher, Ineq, Limit, msg = p.ParseCount(cond, dummy)
-		fmt.Println("Count: ", Matcher, ',', Ineq, ',', Limit)
-		if Limit == -1 {
+				if Limit == -1 {
 			return primitive.NilObjectID, msg
 		}
 	} else if Name == "Length" {
-		fmt.Println("Going into ParseLength")
 		Ineq, Limit, msg = p.ParseLength(cond, dummy)
-		fmt.Println("Length: ", Ineq, ',', Limit)
 		if Limit == -1 {
 			return primitive.NilObjectID, msg
 		}
 	} else if Name == "Contains" {
-		fmt.Println("Going into ParseContains")
 		Matcher, tag, msg = p.ParseContains(cond)
-		fmt.Println("Contains: ", Matcher)
 		if tag == -1 {
 			return primitive.NilObjectID, msg
 		}
 	} else if Name == "MAX" || Name == "MIN" {
-		fmt.Println("Going into ParseMinMax")
 		Obj, Ineq, Limit, msg = p.ParseMinMax(ctx, cond, dummy)
-		fmt.Println(Name, Ineq, ',', Limit)
 		if Limit == -1 {
 			return primitive.NilObjectID, msg
 		}
 	} else if Name == "AND" || Name == "OR" {
-		fmt.Println("Going into ParseAndOr")
 		Obj, tag, msg = p.ParseAndOr(ctx, cond)
 		if tag == -1 {
 			return primitive.NilObjectID, msg
 		}
 	} else if Name == "NOT" {
-		fmt.Println("Going into ParseNot")
 		Obj, tag, msg = p.ParseNot(ctx, cond)
 		if tag == -1 {
 			return primitive.NilObjectID, msg

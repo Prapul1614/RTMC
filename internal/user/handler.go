@@ -2,6 +2,7 @@ package user
 
 import (
     "context"
+    "errors"
 
     "github.com/Prapul1614/RTMC/proto/userpb"
 )
@@ -19,7 +20,8 @@ func (h *Handler) Login(ctx context.Context, req *userpb.LoginRequest) (*userpb.
     
     token, err := h.service.Authenticate(ctx, req.Username, req.Password)
     if err != nil {
-        return nil, err
+        message := "Unable to login"
+        return &userpb.LoginResponse{Message: &message}, err
     }
     return &userpb.LoginResponse{Token: &token}, nil
 }
@@ -28,7 +30,10 @@ func (h *Handler) Register(ctx context.Context, req *userpb.RegisterRequest) (*u
     
     err := h.service.Register(ctx, req.Username, req.Password)
     if err != nil {
-        return nil, err
+        if errors.Is(err, errors.New("User already present")) {
+            return &userpb.RegisterResponse{Message: "User Already registered try login"}, err
+        }
+        return &userpb.RegisterResponse{Message: "Unable to register"}, err
     }
     return &userpb.RegisterResponse{Message: "User registered successfully"}, nil
 }

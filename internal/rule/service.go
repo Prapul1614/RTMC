@@ -4,9 +4,7 @@ import (
 	"context"
 	"unicode/utf8"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/Prapul1614/RTMC/internal/user"
 )
@@ -22,18 +20,11 @@ func NewService(repo *Repository, userRepo user.Repository) *Service {
 }
 
 func (s* Service) FindDoc(ctx context.Context, rule *Rule, id primitive.ObjectID) (primitive.ObjectID, error) {
-    println("Entering FindDoc")
-    println(rule.Notify, rule.When)
     temp, err := s.repo.FindDocWithWhenNotify(ctx, rule) 
-    println(temp.ID.Hex(), temp.When)
     
     if err == nil && id != primitive.NilObjectID{
-        println("Found Doc in FindDoc")
         for _,v := range temp.Owners {
-            if v == id {
-                println("Rule Already Submitted")
-                return temp.ID, err
-            }
+            if v == id { return temp.ID, err }
         } 
 
         s.repo.PushUserID(ctx, temp.ID, id)
@@ -50,7 +41,7 @@ func (s *Service) CreateRule(ctx context.Context, rule *Rule, id primitive.Objec
 
 func (s *Service) GetRule(ctx context.Context, id primitive.ObjectID) ([]Rule, error) {
     // Create the aggregation pipeline
-    pipeline := mongo.Pipeline{
+    /*pipeline := mongo.Pipeline{
         bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: id}}}},
         bson.D{{Key: "$unwind", Value: "$rules"}},
         bson.D{{
@@ -70,7 +61,13 @@ func (s *Service) GetRule(ctx context.Context, id primitive.ObjectID) ([]Rule, e
     if err != nil {
         return nil, err
     }
-    defer cursor.Close(ctx)
+    defer cursor.Close(ctx)*/
+
+	cursor, err := s.repo.FindRulesOfUser(ctx, id)
+	if err != nil {
+		return nil,err
+	}
+	defer cursor.Close(ctx)
 
     // Decode the results into a slice of Rule
     var rules []Rule
@@ -125,7 +122,6 @@ func GetCount(txt string, pat string, contains bool) int {
             j--
         }
         if j < 0 {
-            // fmt.Println("pattern occurs at shift", s)
             if contains {return 1}
             count++
             if s+m < n {
@@ -178,8 +174,8 @@ func (s *Service) ImplementMinMax(ctx context.Context,text string, rule *Rule) i
         return ans
     default:
         println("UNKNOWN RULE IN MINMAX")
+        return -1
     }
-    return -1
 }
 func (s *Service) ImplementAndOr(ctx context.Context, text string, rule *Rule) bool {
     var ans = true

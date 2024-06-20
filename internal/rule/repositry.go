@@ -2,6 +2,7 @@ package rule
 
 import (
 	"context"
+	"time"
 	//"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,12 +14,30 @@ type Repository struct {
     collection *mongo.Collection
 }
 
+func (r *Repository) Collection() *mongo.Collection {
+    return r.collection
+}
 
 func NewRepository(db *mongo.Database, collectionName string) *Repository {
     return &Repository{
         collection: db.Collection(collectionName),
     }
 }
+
+func (r *Repository)CreateIndexOwners() error{
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	indexModel := mongo.IndexModel{
+		Keys: bson.D{{Key: "owners", Value: 1}}, // Index on the BSON field name "owners"
+	}
+	_, err := r.collection.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		return err
+	}
+    return nil
+}
+
 // Name, Matcher, Ineq, Notify, When, Obj, Limit, ID, Created)
 func (r *Repository) FindDocWithWhenNotify(ctx context.Context, rule *Rule) (*Rule, error) {
     filter := bson.M{
@@ -60,4 +79,15 @@ func (r *Repository) PushUserID(ctx context.Context, id primitive.ObjectID, user
         bson.M{"$push": bson.M{"owners": user_id}},
     )
     return err
+}
+
+func (r *Repository) Aggregate(ctx context.Context, pipeline mongo.Pipeline) (*mongo.Cursor, error){
+    curser,err := r.collection.Aggregate(ctx, pipeline)
+    return curser, err
+}
+
+func (r *Repository) FindRulesOfUser(ctx context.Context, id primitive.ObjectID) (*mongo.Cursor, error){
+    filter := bson.M{"owners": id}
+    cursor, err := r.collection.Find(ctx, filter)
+    return cursor, err
 }
