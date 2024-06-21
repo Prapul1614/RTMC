@@ -213,11 +213,11 @@ func TestCreateRule(t *testing.T) {
     defer cancel()
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
-	//Notify := "High patient volume warning"
-	//When := "AND (Contains \"hospital\" , MAX (Count \"patients\" , Count \"waiting\") >= 3)"
+	Notify := "High patient volume warning"
+	When := "AND (Contains \"hospital\" , MAX (Count \"patients\" , Count \"waiting\") >= 3)"
 
-	Notify := "Too many a's"
-	When := "Count \"a\" > 5"
+	//Notify := "Too many a's"
+	//When := "Count \"a\" > 5"
 
 	createRequest := &rulepb.CreateRuleRequest{
 		Rule: fmt.Sprintf("NOTIFY %v WHEN %v", Notify, When),

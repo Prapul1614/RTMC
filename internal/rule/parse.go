@@ -43,15 +43,18 @@ func ValidOp(op string) bool {
 func ValidNum(num string) int {
 	intVal, err := strconv.Atoi(num)
 	if err == nil {
-		return intVal
+		if intVal >= 0 { return intVal }
 	}
 	//fmt.Println("INVALID NUMBER: ", num)
 	return -1
 }
+
 func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string) {
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	// considerinf format Count "----"
 	// return Matcher, Ineq, Limit
+	cond = strings.TrimSpace(cond)
+
 	l := utf8.RuneCountInString(cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
@@ -67,7 +70,7 @@ func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string
 			return "", "", -1, msg
 		}
 	} else {
-		if words[1][0] != '"' || LastLetter(words[len1-3]) != '"' || !ValidOp(words[len1-2]) || Limit == -1 {
+		if len1 < 3 || words[1][0] != '"' || LastLetter(words[len1-3]) != '"' || !ValidOp(words[len1-2]) || Limit == -1 {
 			msg += "InValid representation for Count Instruction.\n"
 			msg += "Please follow: Count \"your_string\" operator number"
 			return "", "", -1, msg
@@ -81,6 +84,8 @@ func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string
 	return cond[7 : l-len(words[len1-1])-len(words[len1-2])-3], words[len1-2], Limit, "Success"
 }
 func (p *Parser) ParseLength(cond string, dummy int) (string, int, string) {
+	cond = strings.TrimSpace(cond)
+
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
@@ -107,6 +112,8 @@ func (p *Parser) ParseLength(cond string, dummy int) (string, int, string) {
 	return words[1], Limit, "Success"
 }
 func (p *Parser) ParseContains(cond string) (string, int, string) {
+	cond = strings.TrimSpace(cond)
+
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	l := len(cond)
 	if cond[9] != '"' || cond[l-1] != '"' {
@@ -114,9 +121,11 @@ func (p *Parser) ParseContains(cond string) (string, int, string) {
 		msg += "Please follow: Contains \"your_string\""
 		return "", -1, msg
 	}
-	return cond[10 : l-1], 0, msg
+	return cond[10 : l-1], 0, "Success"
 }
 func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]primitive.ObjectID, string, int, string) {
+	cond = strings.TrimSpace(cond)
+
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
@@ -133,7 +142,7 @@ func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]pri
 			return obj, "", -1, msg
 		}
 	} else {
-		if cond[4] != '(' || LastLetter(words[len1-3]) != ')' || !ValidOp(words[len1-2]) || Limit == -1 {
+		if len1 < 3 || cond[4] != '(' || LastLetter(words[len1-3]) != ')' || !ValidOp(words[len1-2]) || Limit == -1 {
 			msg += "InValid representation for Min/Max Instruction.\n"
 			msg += "Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN) operator number"
 			return obj, "", -1, msg
@@ -187,6 +196,7 @@ func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]pri
 	return obj, words[len1-2], Limit, "Success"
 }
 func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.ObjectID, int, string) {
+	cond = strings.TrimSpace(cond)
 	
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	var obj = []primitive.ObjectID{}
@@ -202,8 +212,8 @@ func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.Objec
 		cond_start = 4
 	}
 	if LastLetter(cond) != ')' || cond[ii] != '(' {
-		msg += "InValid representation for Min/Max Instruction inside Min/Max.\n"
-		msg += "Please follow: MIN/MAX (Instruction1 , Instruction2 , ... , InstructionN)"
+		msg += "InValid representation for AND/OR Instruction.\n"
+		msg += "Please follow: AND/OR (Instruction1 , Instruction2 , ... , InstructionN)"
 		return obj, -1, msg
 	}
 
@@ -247,6 +257,8 @@ func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.Objec
 	return obj, 0, "Success"
 }
 func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectID, int, string) {
+	cond = strings.TrimSpace(cond)
+
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	l := len(cond)
 	var obj = []primitive.ObjectID{}
@@ -265,6 +277,8 @@ func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectI
 
 
 func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, temp string, owner primitive.ObjectID) (primitive.ObjectID, string) {
+	cond = strings.TrimSpace(cond)
+	
 	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
 	var ip, ib int
 	for _, v := range cond {
@@ -367,6 +381,7 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 		msg += fmt.Sprintf("InValid Instruction: %v", Name)
 		return primitive.NilObjectID, msg
 	}
+	
 	var Nrule Rule
 	Nrule.Name = Name
 	Nrule.Matcher = Matcher
@@ -376,7 +391,7 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 	Nrule.Notify = Notify
 	Nrule.When = When
 	Nrule.Owners = []primitive.ObjectID{}
-
+    
 	var ID primitive.ObjectID
 	var err error
 	if dummy == 0 {
@@ -384,7 +399,7 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 	} else {
 		ID, err = p.service.FindDoc(ctx, &Nrule, primitive.NilObjectID)
 	}
-
+	
 	if err != nil {
 		if dummy == 0 {
 			Nrule.Owners = append(Nrule.Owners, owner)
@@ -397,6 +412,7 @@ func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, tem
 			return primitive.NilObjectID, msg
 		}
 	}	
+	
 	return ID, "Success"
 }
 

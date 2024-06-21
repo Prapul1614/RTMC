@@ -44,7 +44,7 @@ func (r *Repository) FindDocWithWhenNotify(ctx context.Context, rule *Rule) (*Ru
         "notify": rule.Notify,
         "when" : rule.When,
     }
-    
+
     var temp Rule
     err := r.collection.FindOne(context.TODO(),filter).Decode(&temp)
     
