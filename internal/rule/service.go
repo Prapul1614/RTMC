@@ -13,6 +13,7 @@ type Service struct {
     repo *Repository
 	//userRepo *mongo.Collection
     userRepo user.Repository
+    mockrepo *MockRepository
 }
 
 func NewService(repo *Repository, userRepo user.Repository) *Service {
@@ -159,8 +160,12 @@ func (s *Service) ImplementMinMax(ctx context.Context,text string, rule *Rule) i
     case "MIN", "MAX":
         ans := -1 
         if rule.Name == "MIN" {ans = 2147483647}
+        var Nrule *Rule
+        var err error
         for _,v := range rule.Obj {
-            Nrule, err := s.repo.Get(ctx, v)
+            if(s.mockrepo != nil) {Nrule, err = s.mockrepo.Get(ctx, v) 
+            }else {Nrule, err = s.repo.Get(ctx, v)}
+            
             if err != nil{
                 println("Can't get rule doc with rule.MinMax.Obj", rule.ID.Hex(), v.Hex())
                 return -1
@@ -180,8 +185,12 @@ func (s *Service) ImplementMinMax(ctx context.Context,text string, rule *Rule) i
 func (s *Service) ImplementAndOr(ctx context.Context, text string, rule *Rule) bool {
     var ans = true
     if rule.Name == "OR" {ans = false}
+    var Nrule *Rule
+    var err error
     for _,v := range rule.Obj {
-        Nrule, err := s.repo.Get(ctx, v)
+        if(s.mockrepo != nil) {Nrule, err = s.mockrepo.Get(ctx, v) 
+        }else {Nrule, err = s.repo.Get(ctx, v)}
+
         if err != nil{
             println("Can't get rule doc with ruleId",v.Hex(),"in", rule.ID.Hex() )
             return false

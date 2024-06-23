@@ -2,11 +2,14 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -193,9 +196,7 @@ func TestLogin(t *testing.T) {
     }	
 }
 
-func TestCreateRule(t *testing.T) {
-	conn , _ , rulesrepo := newServer(t)
-
+func addingMetadata(t *testing.T,conn *grpc.ClientConn) (rulepb.RuleServiceClient, string, context.Context) {
 	LoginRequest := &userpb.LoginRequest{
         Username: "username0",
         Password: "password0",
@@ -209,9 +210,15 @@ func TestCreateRule(t *testing.T) {
 	
 	client1 := rulepb.NewRuleServiceClient(conn)
 	md := metadata.Pairs("authorization", "Bearer "+token)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-    defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
 	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	return client1, token, ctx
+}
+
+func TestCreateRule(t *testing.T) {
+	conn , _ , rulesrepo := newServer(t)
+	client1, token, ctx := addingMetadata(t, conn)
 
 	Notify := "High patient volume warning"
 	When := "AND (Contains \"hospital\" , MAX (Count \"patients\" , Count \"waiting\") >= 3)"
@@ -259,22 +266,7 @@ func TestCreateRule(t *testing.T) {
 
 func TestClassify(t *testing.T) {
 	conn, _ , _ := newServer(t)
-	LoginRequest := &userpb.LoginRequest{
-        Username: "username0",
-        Password: "password0",
-    }
-	client := userpb.NewUserServiceClient(conn)
-    res, err := client.Login(context.Background(), LoginRequest)
-	if err != nil {
-		t.Fatalf("client.Login \n %v message ", err)
-	}
-	token := *res.Token
-	
-	client1 := rulepb.NewRuleServiceClient(conn)
-	md := metadata.Pairs("authorization", "Bearer "+token)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-    defer cancel()
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	client1, _, ctx := addingMetadata(t, conn)
 
 	var strings = []string{
 		"waiting.. hospital is very busy so patients are waiting, waiting..",
@@ -303,6 +295,69 @@ func TestClassify(t *testing.T) {
 		}else {
 			if len(res.Notifications) !=  1 || res.Notifications[0] != "Too many a's"{
 				t.Fatalf("Should have got only \"Too many a's\" notification")
+			}
+		}
+	}
+}
+
+
+func TestStreamData(t *testing.T) {
+	conn , _ , _ := newServer(t)
+	client1, _, ctx := addingMetadata(t, conn)
+
+	stream,err := client1.StreamData(ctx)
+	if err != nil {
+		t.Fatal("Error while calling StreamData RPC")
+	}
+
+	var Texts = []string{
+		"hospital patients waiting patients no rooms for patients",
+		"aaaaaaa",
+		"hospital patients waiting patients no rooms for patients aa",
+		"hospital",
+		"aaa",
+	}
+
+	var Expected = [][]string{
+		{"High patient volume warning"},
+		{"Too many a's"},
+		{"High patient volume warning","Too many a's"},
+		{},
+		{},
+	}
+
+	for i := 0;i < 5;i++ {
+		err := stream.Send(&rulepb.StreamRequest{Text: Texts[i]})
+        if err != nil {
+            t.Fatalf("could not send text: %v", err)
+        }
+	}
+	if err := stream.CloseSend(); err != nil {
+		t.Fatalf("Err closing stream -> %v", err)
+	}
+	var Messages = [][]string{}
+	for {
+		response, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) { break }
+			log.Fatalf("could not receive response: %v", err)
+		}
+		Messages = append(Messages, response.Notifications)
+	}
+
+	if len(Expected) != len(Messages) {
+		t.Fatalf("Not got as many responses as sent")
+	}
+	
+	for i := range Expected {
+	if len(Expected[i]) != len(Messages[i]) {
+		t.Fatalf("lengths of response are different for example - %v",i)
+	}
+		for j := range Expected[i] {
+			sort.Strings(Expected[i])
+			sort.Strings(Messages[i])
+			if Expected[i][j] != Messages[i][j] {
+				t.Fatalf("Error at %v notification of %v example",j,i)
 			}
 		}
 	}
