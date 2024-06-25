@@ -210,17 +210,21 @@ func addingMetadata(t *testing.T,conn *grpc.ClientConn) (rulepb.RuleServiceClien
 	
 	client1 := rulepb.NewRuleServiceClient(conn)
 	md := metadata.Pairs("authorization", "Bearer "+token)
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	
+	ctx := context.Background()
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	return client1, token, ctx
 }
 
+const highVolumeNotification = "High patient volume warning"
+const manyAsNotification = "Too many a's"
+
 func TestCreateRule(t *testing.T) {
 	conn , _ , rulesrepo := newServer(t)
 	client1, token, ctx := addingMetadata(t, conn)
 
-	Notify := "High patient volume warning"
+	Notify := highVolumeNotification
 	When := "AND (Contains \"hospital\" , MAX (Count \"patients\" , Count \"waiting\") >= 3)"
 
 	//Notify := "Too many a's"
@@ -319,9 +323,9 @@ func TestStreamData(t *testing.T) {
 	}
 
 	var Expected = [][]string{
-		{"High patient volume warning"},
-		{"Too many a's"},
-		{"High patient volume warning","Too many a's"},
+		{highVolumeNotification},
+		{manyAsNotification},
+		{highVolumeNotification,manyAsNotification},
 		{},
 		{},
 	}

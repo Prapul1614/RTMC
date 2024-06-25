@@ -14,18 +14,18 @@ func TestGetLength(t *testing.T) {
 		t.Fatalf("Giving wrong length")
 	}
 }
-
+const wrongCount = "Wrong Count"
 func TestGetCount(t *testing.T) {
 	if GetCount("hihoi hihoi", "hi", false) != 2 {
-		t.Fatal("Wrong Count")
+		t.Fatal(wrongCount)
 	}
 
 	if GetCount("hhhi hhhi", "hh", false) != 4 {
-		t.Fatal("Wrong Count")
+		t.Fatal(wrongCount)
 	}
 
 	if GetCount("hhhi hhhi", "hi", false) != 2 {
-		t.Fatal("Wrong Count")
+		t.Fatal(wrongCount)
 	}
 }
 

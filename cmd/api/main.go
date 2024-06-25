@@ -27,11 +27,11 @@ import (
 
 var client *mongo.Client
 
-func muxserver(rulesHandler *rule.Handler) {
+func muxserver(_ *user.Handler,rulesHandler *rule.Handler) {
     r := mux.NewRouter()
     classifyRouter := r.PathPrefix("/classify").Subrouter()
     classifyRouter.Use(middleware.JWTAuth_http)
-    classifyRouter.HandleFunc("",rulesHandler.Classify_http).Methods("POST")
+    classifyRouter.HandleFunc("",rulesHandler.ClassifyHttp).Methods("POST")
 
     fmt.Println("Server started on port 8000")
     log.Fatal(http.ListenAndServe(":8000", r))
@@ -73,7 +73,7 @@ func main(){
     rulesHandler := rule.NewHandler(rulesService, rulesParser)
     rulesRepo.CreateIndexOwners()
 
-    muxserver(rulesHandler)
+    muxserver(userHandler, rulesHandler)
 
     // Create a new gRPC server
     grpcServer := grpc.NewServer(

@@ -25,7 +25,7 @@ import (
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg3MDkxMTksInN1YiI6IjY2NzAxOGRmMDc4YzIwODc0ODQwNWRlZCJ9.jpo7K61rEdLpRpOFssSoJZWs7uFEzdUxJdCD-h0WatQ",
 }*/
 var Tokens = []string{}
-
+var tokenHead = "Bearer "
 var Texts = []string{
 	"transaction transaction location",
 	"urgent urgent money transfer",
@@ -109,7 +109,7 @@ func TestCreate(client rulepb.RuleServiceClient) {
 
 	// Add authentication token to the context
 	token := Tokens[2]
-	md := metadata.Pairs("authorization", "Bearer "+token)
+	md := metadata.Pairs("authorization", tokenHead+token)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	createRequest := &rulepb.CreateRuleRequest{
@@ -129,7 +129,7 @@ func TestGet(client rulepb.RuleServiceClient) {
 
 	// Add authentication token to the context
 	token := Tokens[0]
-	md := metadata.Pairs("authorization", "Bearer "+token)
+	md := metadata.Pairs("authorization", tokenHead+token)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	getRequest := &rulepb.GetRulesRequest{}
@@ -149,7 +149,7 @@ func CreateRulesForUsers(client rulepb.RuleServiceClient) {
 	
 		// Add authentication token to the context
 		token := Tokens[i]
-		md := metadata.Pairs("authorization", "Bearer "+token)
+		md := metadata.Pairs("authorization", tokenHead+token)
 		ctx = metadata.NewOutgoingContext(ctx, md)
 	
 		getRequest := &rulepb.GetRulesRequest{}
@@ -168,7 +168,7 @@ func CreateRulesForUsers(client rulepb.RuleServiceClient) {
 			
 				// Add authentication token to the context
 				token := Tokens[j]
-				md := metadata.Pairs("authorization", "Bearer "+token)
+				md := metadata.Pairs("authorization", tokenHead+token)
 				ctx = metadata.NewOutgoingContext(ctx, md)
 			
 				createRequest := &rulepb.CreateRuleRequest{
@@ -190,7 +190,7 @@ func TestClassify(client rulepb.RuleServiceClient) {
 
 	// Add authentication token to the context
 	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTg2MDUxNDgsInN1YiI6IjY2NmU4MTU5OTVkYmIxYzQ1MTMyMzUwMyJ9.-QQbLkRGQcQFkc5_YpDHDamj0givVU2cqcJJcuGU9Xk" // Replace with the actual token
-	md := metadata.Pairs("authorization", "Bearer "+token)
+	md := metadata.Pairs("authorization", tokenHead+token)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	classifyRequest := &rulepb.ClassifyRequest{
@@ -205,7 +205,7 @@ func TestClassify(client rulepb.RuleServiceClient) {
 
 func TestStream(client rulepb.RuleServiceClient) {
 	token := Tokens[0]
-	md := metadata.Pairs("authorization", "Bearer "+token)
+	md := metadata.Pairs("authorization", tokenHead+token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 
 	stream, err := client.StreamData(ctx)

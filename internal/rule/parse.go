@@ -48,9 +48,9 @@ func ValidNum(num string) int {
 	//fmt.Println("INVALID NUMBER: ", num)
 	return -1
 }
-
+const FormattingErr = "Error in formatting of:  %v \n"
 func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string) {
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	// considerinf format Count "----"
 	// return Matcher, Ineq, Limit
 	cond = strings.TrimSpace(cond)
@@ -86,7 +86,7 @@ func (p *Parser) ParseCount(cond string, dummy int) (string, string, int, string
 func (p *Parser) ParseLength(cond string, dummy int) (string, int, string) {
 	cond = strings.TrimSpace(cond)
 
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
 	Limit := -1
@@ -114,7 +114,7 @@ func (p *Parser) ParseLength(cond string, dummy int) (string, int, string) {
 func (p *Parser) ParseContains(cond string) (string, int, string) {
 	cond = strings.TrimSpace(cond)
 
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	l := len(cond)
 	if cond[9] != '"' || cond[l-1] != '"' {
 		msg += "InValid representation for Contains Instruction.\n"
@@ -126,7 +126,7 @@ func (p *Parser) ParseContains(cond string) (string, int, string) {
 func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]primitive.ObjectID, string, int, string) {
 	cond = strings.TrimSpace(cond)
 
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	words := strings.Fields(cond)
 	len1 := len(words)
 	obj := []primitive.ObjectID{}
@@ -198,7 +198,7 @@ func (p *Parser) ParseMinMax(ctx context.Context, cond string, dummy int) ([]pri
 func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.ObjectID, int, string) {
 	cond = strings.TrimSpace(cond)
 	
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	var obj = []primitive.ObjectID{}
 	var Nobj primitive.ObjectID
 	// ip for parenthesis balance count
@@ -259,7 +259,7 @@ func (p *Parser) ParseAndOr(ctx context.Context, cond string) ([]primitive.Objec
 func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectID, int, string) {
 	cond = strings.TrimSpace(cond)
 
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	l := len(cond)
 	var obj = []primitive.ObjectID{}
 	if cond[4] != '(' || cond[l-1] != ')' {
@@ -279,7 +279,7 @@ func (p *Parser) ParseNot(ctx context.Context, cond string) ([]primitive.ObjectI
 func (p *Parser) ParseCondition(ctx context.Context, cond string, dummy int, temp string, owner primitive.ObjectID) (primitive.ObjectID, string) {
 	cond = strings.TrimSpace(cond)
 	
-	var msg = fmt.Sprintf("Error in formatting of:  %v \n", cond)
+	var msg = fmt.Sprintf(FormattingErr, cond)
 	var ip, ib int
 	for _, v := range cond {
 		if v == '(' {

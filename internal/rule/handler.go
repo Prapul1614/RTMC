@@ -93,11 +93,11 @@ func (h* Handler) StreamData(stream rulepb.RuleService_StreamDataServer) error {
 
     }
 }
-
+const claimErr = "could not retrieve claims from context"
 func (h *Handler) Classify(ctx context.Context, req *rulepb.ClassifyRequest) (*rulepb.ClassifyResponse, error) {
     claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)
     if !ok {
-        return nil, errors.New("could not retrieve claims from context")
+        return nil, errors.New(claimErr)
     }
 
     textString := req.Text
@@ -121,7 +121,7 @@ func (h *Handler) Classify(ctx context.Context, req *rulepb.ClassifyRequest) (*r
     return &rulepb.ClassifyResponse{Notifications: notifications}, nil
 }
 
-func (h *Handler) Classify_http(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ClassifyHttp(w http.ResponseWriter, r *http.Request) {
 
     claims, ok := r.Context().Value(middleware.ClaimsKey).(*middleware.Claims)
     if !ok {
@@ -184,7 +184,7 @@ func (h *Handler) Classify_http(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateRule(ctx context.Context, req *rulepb.CreateRuleRequest) (*rulepb.RuleResponse, error) {    
     claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)
     if !ok {
-        return nil, errors.New("could not retrieve claims from context")
+        return nil, errors.New(claimErr)
     }
 
     ruleString := req.Rule
@@ -201,7 +201,7 @@ func (h *Handler) CreateRule(ctx context.Context, req *rulepb.CreateRuleRequest)
 func (h *Handler) GetRules(ctx context.Context, req *rulepb.GetRulesRequest) (*rulepb.RulesResponse, error) {    
     claims, ok := ctx.Value(middleware.ClaimsKey).(*middleware.Claims)
     if !ok {
-        return nil, errors.New("could not retrieve claims from context")
+        return nil, errors.New(claimErr)
     }
 
     owner,_ := primitive.ObjectIDFromHex(claims.Subject) 
